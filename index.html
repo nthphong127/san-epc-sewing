@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>SCAN EPC</title>
+    <link rel="stylesheet" href="./assets/main.css" />
+  </head>
+  <body>
+    <div id="error-modal" class="modal" style="display: none">
+      <div class="modal-content">
+        <span class="close-btn">&times;</span>
+        <h3>Danh sách tem lỗi</h3>
+        <div id="error-list">
+          <table>
+            <thead>
+              <tr>
+                <th>Tem</th>
+                <th>Chức năng</th>
+              </tr>
+            </thead>
+            <tbody id="error-table-body"></tbody>
+          </table>
+        </div>
+        <button id="close-modal-btn" hidden>Đóng</button>
+      </div>
+      </div>
+      <div id="last-modal" class="modal" style="display: none">
+      <div class="modal-content">
+        <span class="close-last-btn">&times;</span>
+        <h3>Danh sách tem đã quét trước đây</h3>
+        <div id="last-list">
+          <table>
+            <thead>
+              <tr>
+                <th>Tem</th>
+                <th>Chức năng</th>
+              </tr>
+            </thead>
+            <tbody id="last-table-body"></tbody>
+          </table>
+        </div>
+        <button id="close-last-btn" hidden>Đóng</button>
+      </div>
+      </div>
+    </div>
+
+    <div
+      id="loading-indicator"
+      style="
+        display: flex;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        color: white;
+        display: none;
+        justify-content: center;
+        align-items: center;
+        font-size: 24px;
+        z-index: 1000;
+      "
+    >
+      <span>Đã có mạng trở lại, đang đồng bộ dữ liệu, vui lòng chờ...</span>
+    </div>
+    <div id="success-animation" class="hidden">+1</div>
+
+    <div class="flex-container-header">
+      <div class="box-1-imgbox">
+        <img src="./assets/logo.png" alt="" />
+      </div>
+      <div class="box-1-imgbox">
+        <h2>TRẠM A</h2>
+      </div>
+      <div class="box-1-imgbox-check">
+        <div id="networkButton">
+          <div id="status">Đang kiểm tra kết nối...</div>
+        </div>
+        <!-- <div id="db-status">Checking database...</div> -->
+        <div id="timer"></div>
+        <!-- Button to show network status -->
+      </div>
+    </div>
+    <div class="flex-container">
+      <div class="box-1">
+        <div class="box-1-text">
+          <!-- <button id="call-procedure-btn">Call Stored Procedure</button> -->
+          <!-- <div class="box-1-text-top">
+            <h3>Số lượng đóng gói</h3>
+            <h3 id="data-count-cus">Loading...</h3>
+          </div> -->
+          <div class="box-1-text-bot">
+            <h3 class="sltc">Số lượng tiêu chuẩn</h3>
+            <h3 id="data-count">Loading...</h3>
+          </div>
+        </div>
+      </div>
+      <div class="box-2">
+        <div class="error-epc-btn-div">
+          <button class="last-epc-btn">
+            Tem trước <span id="last-count">0</span>
+          </button>
+          <button class="error-epc-btn">
+            Tem lỗi <span id="error-count">0</span>
+          </button>
+        </div>
+        <div class="box-2-epc">
+          <input placeholder="EPC CODE..." id="epc-code" type="text" />
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>EPC CODE</th>
+              <th>Size</th>
+              <th>Mono</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+    </div>
+    <script src="./renderer.js"></script>
+    <script src="./offline.js"></script>
+  </body>
+</html>
