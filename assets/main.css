@@ -56,6 +56,7 @@ body {
   min-height: 564px;
   background-color: green;
   text-align: center;
+  border-radius: 20px;
 }
 .box-2 {
   /* background-color: red; */
@@ -72,6 +73,7 @@ body {
 .online {
   background-color: green;
   color: white;
+  border-radius: 20px;
 }
 .offline {
   background-color: red;

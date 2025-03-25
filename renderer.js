@@ -269,7 +269,7 @@ epcCodeInput.addEventListener("input", () => {
             errSound.play()
             const notification = document.createElement("div");
             notification.className = "notification error";
-            notification.innerText = `Tem đã được quét vào ngày trước đó : ${epcCode}`;
+            notification.innerText = `Tem đã được quét : ${epcCode}`;
             document.body.appendChild(notification);
 
             lastDb.find({ epcCode }, (err, docs) => {
@@ -298,6 +298,7 @@ epcCodeInput.addEventListener("input", () => {
             });
 
             lastList.push(epcCode);
+
 
             setTimeout(() => {
               notification.remove();
@@ -589,6 +590,8 @@ function updateLastTable() {
     return;
   }
   lastList.forEach((error, index) => {
+    console.log('error-epc',error);
+    
     const row = document.createElement("tr");
     row.innerHTML = `
       <td>${error}</td>

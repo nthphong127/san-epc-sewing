@@ -8,10 +8,25 @@ const db = new Datastore({ filename: dbPath, autoload: true });
 
 require("dotenv").config({ path: `${__dirname}/.env` });
 
-console.log("DB_HOST:", process.env.DB_HOST); // Output sau khi build
 var stationNos = process.env.STATION_NO;
 var factoryCodes = process.env.FACTORY_CODE;
 var stationNoCus = process.env.STATION_NO_CUS;
+const os = require('os');
+
+function getLocalIP() {
+    const interfaces = os.networkInterfaces();
+    for (const interfaceName in interfaces) {
+        for (const net of interfaces[interfaceName]) {
+            // Chỉ lấy IPv4 và bỏ qua địa chỉ loopback
+            if (net.family === 'IPv4' && !net.internal) {
+                return net.address;
+            }
+        }
+    }
+    return 'Không tìm thấy IP';
+}
+var ipLocal = getLocalIP();// get ip local address
+
 
 // Cấu hình kết nối SQL Server
 const config = {
@@ -33,7 +48,7 @@ let isOnline = true; // Mặc định là online
 
 ipcMain.on("network-status", (event, status) => {
   isOnline = status; // Cập nhật trạng thái mạng
-  console.log("Network status updated:", isOnline ? "Online" : "Offline");
+  // console.log("Network status updated:", isOnline ? "Online" : "Offline");
 });
 
 // Khởi tạo ứng dụng Electron
@@ -67,7 +82,7 @@ app.on("window-all-closed", () => {
 // }
 // });
 // Hàm xử lý gọi thủ tục lưu trữ qua IPC
-console.log("Database Server:", config.server);
+// console.log("Database Server:", config.server);
 ipcMain.handle(
   "call-stored-procedure",
   async (event, procedureName, params) => {
@@ -159,6 +174,9 @@ ipcMain.handle("call-sp-upsert-epc", async (event, epc, stationNo) => {
 
   // Nếu online, xử lý logic SQL Server
   try {
+
+    console.log(ipLocal);
+
     const pool = await sql.connect(config);
     const result = await pool
       .request()
@@ -225,46 +243,49 @@ if (!fs.existsSync(logDir)) {
   console.log("Created log directory:", logDir);
 }
 
-ipcMain.handle("delete-epc-record", async (event, matchkeyid, stationNo, epcCode) => {
-  try {
-    console.log(matchkeyid, "keyidkeyid");
-    const pool = await sql.connect(config);
+ipcMain.handle(
+  "delete-epc-record",
+  async (event, matchkeyid, stationNo, epcCode) => {
+    try {
+      console.log(matchkeyid, "keyidkeyid");
+      const pool = await sql.connect(config);
 
-    // Tạo truy vấn xóa từ bảng dv_RFIDrecordmst
-    const deleteQueryMain = `
+      // Tạo truy vấn xóa từ bảng dv_RFIDrecordmst
+      const deleteQueryMain = `
       DELETE FROM dv_RFIDrecordmst
       WHERE matchkeyid = @matchkeyid AND StationNo LIKE @StationNo
     `;
 
-    // Tạo truy vấn xóa từ bảng dv_RFIDrecordmst_backup_Daily
-    const deleteQueryBackup = `
+      // Tạo truy vấn xóa từ bảng dv_RFIDrecordmst_backup_Daily
+      const deleteQueryBackup = `
       DELETE FROM dv_RFIDrecordmst_backup_Daily
       WHERE matchkeyid = @matchkeyid AND StationNo LIKE @StationNo
     `;
 
-    // Thực hiện xóa trong cả hai bảng
-    await pool
-      .request()
-      .input("matchkeyid", sql.NVarChar, matchkeyid)
-      .input("StationNo", sql.NVarChar, stationNos)
-      .query(deleteQueryMain);
+      // Thực hiện xóa trong cả hai bảng
+      await pool
+        .request()
+        .input("matchkeyid", sql.NVarChar, matchkeyid)
+        .input("StationNo", sql.NVarChar, stationNos)
+        .query(deleteQueryMain);
 
-    await pool
-      .request()
-      .input("matchkeyid", sql.NVarChar, matchkeyid)
-      .input("StationNo", sql.NVarChar, stationNos)
-      .query(deleteQueryBackup);
+      await pool
+        .request()
+        .input("matchkeyid", sql.NVarChar, matchkeyid)
+        .input("StationNo", sql.NVarChar, stationNos)
+        .query(deleteQueryBackup);
 
-    await sql.close();
-    const logEntry = `[${new Date().toISOString()}] Matchkeyid Deleted: ${matchkeyid}, EPC: ${epcCode}, stationNo: ${stationNo}\n`;
-    fs.appendFileSync(logDeleteFilePath, logEntry);
+      await sql.close();
+      const logEntry = `[${new Date().toISOString()}] Matchkeyid Deleted: ${matchkeyid}, EPC: ${epcCode}, stationNo: ${stationNo}\n`;
+      fs.appendFileSync(logDeleteFilePath, logEntry);
 
-    return { success: true };
-  } catch (error) {
-    console.error("Error deleting EPC record:", error.message);
-    return { success: false, message: error.message };
+      return { success: true };
+    } catch (error) {
+      console.error("Error deleting EPC record:", error.message);
+      return { success: false, message: error.message };
+    }
   }
-});
+);
 
 ipcMain.handle("show-confirm-dialog", async (event, message) => {
   const result = dialog.showMessageBoxSync({
@@ -347,6 +368,3 @@ ipcMain.handle("sync-offline-data", async () => {
     return { success: false, message: error.message };
   }
 });
-
-
-
