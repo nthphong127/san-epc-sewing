@@ -30,6 +30,7 @@
       "offline.js",
       "errors.db",
       "last.db",
+      "list-scan.db",
       "offline.db",
       "node_modules/**/*",
       "dist/**/*",

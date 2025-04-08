@@ -6,6 +6,7 @@ const path = require("path");
 const dbPath = path.join(__dirname, "offline.db");
 const db = new Datastore({ filename: dbPath, autoload: true });
 
+
 require("dotenv").config({ path: `${__dirname}/.env` });
 
 var stationNos = process.env.STATION_NO;
@@ -27,6 +28,7 @@ function getLocalIP() {
 }
 var ipLocal = getLocalIP();// get ip local address
 
+var ipLocal = getLocalIP();// get ip local address
 
 // Cấu hình kết nối SQL Server
 const config = {
@@ -155,6 +157,7 @@ ipcMain.handle("call-sp-upsert-epc", async (event, epc, stationNo) => {
       const record = {
         epc,
         stationNos,
+        ipLocal,
         synced: 0, // Chưa đồng bộ
         created_at: new Date().toISOString(),
       };
@@ -182,6 +185,7 @@ ipcMain.handle("call-sp-upsert-epc", async (event, epc, stationNo) => {
       .request()
       .input("EPC", sql.NVarChar, epc)
       .input("StationNo", sql.NVarChar, stationNos)
+      .input("IP", sql.NVarChar, ipLocal)
       .execute("SP_UpsertEpcRecord_phong");
 
     // Nếu stored procedure chạy thành công
@@ -209,16 +213,16 @@ ipcMain.handle("call-sp-upsert-epc", async (event, epc, stationNo) => {
 
 ipcMain.handle(
   "get-top-epc-records",
-  async (event, factoryCode, stationNo, dayNow) => {
+  async (event, factoryCodes, stationNos, dayNow) => {
     try {
       const pool = await sql.connect(config);
 
       const query = `
-SELECT TOP 10 r.EPC_Code, r.size_code, r.mo_no, r.matchkeyid, r.created
-FROM dv_RFIDrecordmst r
-WHERE StationNo LIKE @StationNo
-ORDER BY COALESCE(r.updated, r.record_time) DESC;
-`;
+        SELECT TOP 10 r.EPC_Code, r.size_code, r.mo_no, r.matchkeyid, r.created
+        FROM dv_RFIDrecordmst r
+        WHERE StationNo LIKE @StationNo
+        ORDER BY COALESCE(r.updated, r.record_time) DESC;
+        `;
 
       const result = await pool
         .request()

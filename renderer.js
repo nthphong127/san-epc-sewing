@@ -4,14 +4,17 @@ const { ipcRenderer } = require("electron");
 var tableBody = document.getElementById("table-body");
 let previousMoNo = null;
 let hasNotified = true;
-const Datastore = require("nedb");    
+const Datastore = require("nedb");
 const successSound = new Audio("./assets/ting.ogg");
 const errSound = new Audio("./assets/err.ogg");
 const notiSound = new Audio("./assets/noti.ogg");
 const errorDb = new Datastore({ filename: "errors.db", autoload: true });
 const lastDb = new Datastore({ filename: "last.db", autoload: true });
+const listScanDB = new Datastore({
+  filename: "list-scan-daily.db",
+  autoload: true,
+});
 let lastList = [];
-
 
 function checkOnlineStatus() {
   const networkButton = document.getElementById("networkButton");
@@ -133,10 +136,8 @@ async function fetchTableData() {
   try {
     // Gọi IPC để lấy dữ liệu từ backend
     const result = await ipcRenderer.invoke("get-top-epc-records");
-    const currentMono = result.records[0]?.mo_no; 
-    if (result.success) {   
-
-
+    const currentMono = result.records[0]?.mo_no;
+    if (result.success) {
       if (previousMoNo && currentMono && currentMono !== previousMoNo) {
         if (!hasNotified) {
           notiSound.play();
@@ -171,7 +172,12 @@ async function deleteRow(epcCode, keyid) {
     console.log(keyid, "MMMM");
 
     if (confirmation) {
-      const result = await ipcRenderer.invoke("delete-epc-record", keyid, 'M', epcCode);
+      const result = await ipcRenderer.invoke(
+        "delete-epc-record",
+        keyid,
+        "M",
+        epcCode
+      );
 
       if (result.success) {
         console.log(`Deleted EPC Code: ${epcCode}`);
@@ -265,8 +271,50 @@ epcCodeInput.addEventListener("input", () => {
             return;
           }
 
+          if (result.success && result.returnValue == 1) {
+            const updatedTime = formatDateTime();
+
+            listScanDB.findOne({ epcCode }, (err, existingDoc) => {
+              if (err) {
+                console.error("DB find error:", err);
+                return;
+              }
+
+              if (existingDoc) {
+                // Đã tồn tại -> chỉ update updated
+                listScanDB.update(
+                  { epcCode },
+                  { $set: { updated: updatedTime } },
+                  {},
+                  (updateErr, numReplaced) => {
+                    if (updateErr) {
+                      console.error("Failed to update document:", updateErr);
+                    } else {
+                      console.log("Document updated:", numReplaced);
+                    }
+                  }
+                );
+              } else {
+                // Chưa có -> insert mới với timestamp và updated giống nhau
+                const listScan = {
+                  epcCode,
+                  updated: updatedTime,
+                  timestamp: updatedTime,
+                };
+
+                listScanDB.insert(listScan, (insertErr, newDoc) => {
+                  if (insertErr) {
+                    console.error("Failed to insert document:", insertErr);
+                  } else {
+                    console.log("Document inserted:", newDoc);
+                  }
+                });
+              }
+            });
+          }
+
           if (result.success && result.returnValue == -1) {
-            errSound.play()
+            errSound.play();
             const notification = document.createElement("div");
             notification.className = "notification error";
             notification.innerText = `Tem đã được quét : ${epcCode}`;
@@ -298,7 +346,6 @@ epcCodeInput.addEventListener("input", () => {
             });
 
             lastList.push(epcCode);
-
 
             setTimeout(() => {
               notification.remove();
@@ -552,7 +599,6 @@ function removeError(id) {
   });
 }
 
-
 // modal  last
 const lastBtn = document.querySelector(".last-epc-btn");
 const modalLast = document.getElementById("last-modal");
@@ -563,10 +609,6 @@ lastBtn.addEventListener("click", () => {
   updateLastTable();
   modalLast.style.display = "flex";
 });
-
-
-
-
 
 function updateLastCount() {
   lastDb.count({}, (err, count) => {
@@ -590,8 +632,8 @@ function updateLastTable() {
     return;
   }
   lastList.forEach((error, index) => {
-    console.log('error-epc',error);
-    
+    console.log("error-epc", error);
+
     const row = document.createElement("tr");
     row.innerHTML = `
       <td>${error}</td>
@@ -666,7 +708,7 @@ function updateLastTable() {
       return;
     }
 
-    console.log(docs,'docs')
+    console.log(docs, "docs");
 
     docs.forEach((doc, index) => {
       const row = document.createElement("tr");
@@ -706,4 +748,20 @@ const versionApp = process.env.VERSION_APP;
 const versionElement = document.querySelector("title");
 if (versionElement) {
   versionElement.textContent = `SCAN EPC ${versionApp}`;
+}
+function formatDateTime(date = new Date()) {
+  const pad = (n) => (n < 10 ? "0" + n : n);
+  return (
+    date.getFullYear() +
+    "-" +
+    pad(date.getMonth() + 1) +
+    "-" +
+    pad(date.getDate()) +
+    " " +
+    pad(date.getHours()) +
+    ":" +
+    pad(date.getMinutes()) +
+    ":" +
+    pad(date.getSeconds())
+  );
 }
