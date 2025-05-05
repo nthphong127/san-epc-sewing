@@ -6,29 +6,26 @@ const path = require("path");
 const dbPath = path.join(__dirname, "offline.db");
 const db = new Datastore({ filename: dbPath, autoload: true });
 
-
 require("dotenv").config({ path: `${__dirname}/.env` });
 
 var stationNos = process.env.STATION_NO;
 var factoryCodes = process.env.FACTORY_CODE;
 var stationNoCus = process.env.STATION_NO_CUS;
-const os = require('os');
+const os = require("os");
 
 function getLocalIP() {
-    const interfaces = os.networkInterfaces();
-    for (const interfaceName in interfaces) {
-        for (const net of interfaces[interfaceName]) {
-            // Chỉ lấy IPv4 và bỏ qua địa chỉ loopback
-            if (net.family === 'IPv4' && !net.internal) {
-                return net.address;
-            }
-        }
+  const interfaces = os.networkInterfaces();
+  for (const interfaceName in interfaces) {
+    for (const net of interfaces[interfaceName]) {
+      // Chỉ lấy IPv4 và bỏ qua địa chỉ loopback
+      if (net.family === "IPv4" && !net.internal) {
+        return net.address;
+      }
     }
-    return 'Không tìm thấy IP';
+  }
+  return "Không tìm thấy IP";
 }
-var ipLocal = getLocalIP();// get ip local address
-
-var ipLocal = getLocalIP();// get ip local address
+var ipLocal = getLocalIP(); // get ip local address
 
 // Cấu hình kết nối SQL Server
 const config = {
@@ -142,14 +139,20 @@ WHERE
 
 const fs = require("fs"); // Import module file system
 
-const logDir = path.join(__dirname, "log"); // Đường dẫn thư mục log
-const logFilePath = path.join(logDir, "epc_success.log"); // Đường dẫn file log
+
+// Tạo ngày hiện tại theo format YYYY-MM-DD
+const today = new Date();
+const dateString = today.toISOString().slice(0, 10); // "2025-04-26"
+
+// Tạo đường dẫn log mới theo ngày
+const logDir = path.join(__dirname, "logs");
+
 
 // Kiểm tra nếu thư mục log chưa tồn tại thì tạo mới
 if (!fs.existsSync(logDir)) {
   fs.mkdirSync(logDir, { recursive: true });
-  console.log("Created log directory:", logDir);
 }
+
 
 ipcMain.handle("call-sp-upsert-epc", async (event, epc, stationNo) => {
   if (!isOnline) {
@@ -159,7 +162,7 @@ ipcMain.handle("call-sp-upsert-epc", async (event, epc, stationNo) => {
         stationNos,
         ipLocal,
         synced: 0, // Chưa đồng bộ
-        created_at: new Date().toISOString(),
+        created_at: new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString(),
       };
       db.insert(record, (err, newDoc) => {
         if (err) {
@@ -177,7 +180,6 @@ ipcMain.handle("call-sp-upsert-epc", async (event, epc, stationNo) => {
 
   // Nếu online, xử lý logic SQL Server
   try {
-
     console.log(ipLocal);
 
     const pool = await sql.connect(config);
@@ -189,18 +191,20 @@ ipcMain.handle("call-sp-upsert-epc", async (event, epc, stationNo) => {
       .execute("SP_UpsertEpcRecord_phong");
 
     // Nếu stored procedure chạy thành công
+    const now = new Date();
+    const formattedNow = now.toLocaleString().replace("T", " ").substring(0, 19); // "2025-04-04 12:00:00"
+
+
+
+
+    // Log kết quả procedure
     if (result.returnValue === 1) {
-      const logEntry = `[${new Date().toISOString()}] EPC Scan Success: ${epc}\n`;
-
-      // Kiểm tra nếu thư mục log chưa tồn tại thì tạo mới (phòng khi có lỗi xóa thư mục)
-      if (!fs.existsSync(logDir)) {
-        fs.mkdirSync(logDir, { recursive: true });
-      }
-
-      // Ghi log vào file
-      fs.appendFileSync(logFilePath, logEntry);
-      console.log("Logged EPC to file:", epc);
+      console.log("Stored procedure executed successfully.");
+    } else {
+      console.log("Stored procedure executed with errors.");
     }
+
+    console.log("Logged EPC to file:", epc);
 
     return { success: true, returnValue: result.returnValue };
   } catch (err) {
@@ -213,7 +217,7 @@ ipcMain.handle("call-sp-upsert-epc", async (event, epc, stationNo) => {
 
 ipcMain.handle(
   "get-top-epc-records",
-  async (event, factoryCodes, stationNos, dayNow) => {
+  async (event, factoryCode, stationNo, dayNow) => {
     try {
       const pool = await sql.connect(config);
 
@@ -239,6 +243,31 @@ ipcMain.handle(
     }
   }
 );
+ipcMain.handle("get-infor", async (event, epc) => {
+  try {
+    const pool = await sql.connect(config);
+
+    const query = `
+      SELECT dr.mo_no, dr.size_numcode  
+      FROM dv_rfidmatchmst dr 
+      WHERE dr.EPC_Code = @epc
+        AND dr.ri_cancel = '0';
+    `;
+
+    const result = await pool
+      .request()
+      .input("epc", sql.NVarChar, epc)
+      .query(query);
+
+    await sql.close();
+
+    return { success: true, record: result.recordset[0] || null };
+  } catch (error) {
+    console.error("Database query error:", error);
+    return { success: false, message: error.message };
+  }
+});
+
 
 const logDeleteFilePath = path.join(logDir, "delete.log"); // Đường dẫn file log delete
 // Kiểm tra nếu thư mục log chưa tồn tại thì tạo mới
