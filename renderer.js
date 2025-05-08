@@ -303,8 +303,10 @@ epcCodeInput.addEventListener("input", () => {
 
       ipcRenderer
         .invoke("call-sp-upsert-epc", epcCode)
-        .then((result) => {
-          console.log("Stored procedure result:", result);
+        .then(async (result) => {
+          const infor = await ipcRenderer.invoke("get-infor", epcCode);
+          let size = infor.success && infor.record ? infor.record.size_numcode : "Không rõ";
+          let mono = infor.success && infor.record ? infor.record.mo_no : "Không rõ";
           if (result.success && result.returnValue == 0) {
             const notification = document.createElement("div");
             notification.className = "notification error";
@@ -330,7 +332,7 @@ epcCodeInput.addEventListener("input", () => {
                 // Đã quét rồi, hiển thị thông báo
                 const notification = document.createElement("div");
                 notification.className = "notification warning";
-                notification.innerText = `Tem đã được quét trong hôm nay: ${epcCode} (Lúc: ${doc.record_time})`;
+                notification.innerText = `Tem đã được quét trong hôm nay: ${epcCode} - Size:${size} -${mono} (Lúc: ${doc.record_time})`;
                 document.body.appendChild(notification);
                 lastList.push(epcCode);
                 setTimeout(() => {
@@ -356,7 +358,7 @@ epcCodeInput.addEventListener("input", () => {
               if (doc) {
                 notification.className = "notification warning";
                 // Tem đã được quét trong hôm nay
-                message = `Tem đã được quét trong ngày hôm nay: ${epcCode} (Lúc: ${doc.record_time})`;
+                message = `Tem đã được quét trong ngày hôm nay: ${epcCode} - Size:${size} -${mono} (Lúc: ${doc.record_time})`;
                 notification.innerText = message;
                 document.body.appendChild(notification);
                 setTimeout(() => {
@@ -365,7 +367,7 @@ epcCodeInput.addEventListener("input", () => {
               } else {
                 notification.className = "notification error      ";
                 // Tem đã được quét vào ngày trước đó → log & lưu error
-                message = `Tem đã được quét vào ngày trước đó: ${epcCode}`;
+                message = `Tem đã được quét vào ngày trước đó: ${epcCode} - Size: ${size} - ${mono}`;
                 notification.innerText = message;
                 document.body.appendChild(notification);
                 lastList.push(epcCode);
