@@ -15,37 +15,46 @@ const dbDir = path.join(__dirname, "db");
 // Hàm lấy ngày hiện tại dạng YYYY-MM-DD
 function getTodayDateStr() {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 // Hàm định dạng lại thời gian theo kiểu "YYYY-MM-DD HH:mm:ss.SSS"
 function formatDate(date) {
-  const pad = (num, size = 2) => String(num).padStart(size, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
-         `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`;
+  const pad = (num, size = 2) => String(num).padStart(size, "0");
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+      date.getDate()
+    )} ` +
+    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(
+      date.getSeconds()
+    )}.${pad(date.getMilliseconds(), 3)}`
+  );
 }
 
 // Hàm ghi log vào file
 function logToFile(filePath, message) {
   const logEntry = {
     message,
-    timestamp: formatDate(new Date())
+    timestamp: formatDate(new Date()),
   };
-  fs.appendFileSync(filePath, JSON.stringify(logEntry) + '\n');
+  fs.appendFileSync(filePath, JSON.stringify(logEntry) + "\n");
 }
 
 function cleanOldLogs() {
   const todayStr = getTodayDateStr();
   const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - 3);  // 3 ngày trước
+  cutoffDate.setDate(cutoffDate.getDate() - 3); // 3 ngày trước
 
-  fs.readdirSync(logDir).forEach(file => {
+  fs.readdirSync(logDir).forEach((file) => {
     if (file.endsWith(".log")) {
-      const fileDateStr = file.split('_')[1].split('.')[0];  // Lấy ngày từ tên file (ví dụ: epc_success_2025-05-05.log)
+      const fileDateStr = file.split("_")[1].split(".")[0]; // Lấy ngày từ tên file (ví dụ: epc_success_2025-05-05.log)
       const fileDate = new Date(fileDateStr);
 
       if (fileDate < cutoffDate) {
-        fs.unlinkSync(path.join(logDir, file));  // Xóa file cũ
+        fs.unlinkSync(path.join(logDir, file)); // Xóa file cũ
         console.log("Đã xóa file log cũ:", file);
       }
     }
@@ -57,7 +66,7 @@ if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
 if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
 
 // Xóa các file DB cũ không phải ngày hôm nay
-fs.readdirSync(dbDir).forEach(file => {
+fs.readdirSync(dbDir).forEach((file) => {
   const todayStr = getTodayDateStr();
   if (!file.includes(todayStr) && file.endsWith(".db")) {
     fs.unlinkSync(path.join(dbDir, file));
@@ -66,12 +75,24 @@ fs.readdirSync(dbDir).forEach(file => {
 });
 
 // Tạo các DB file theo ngày
-const errorDb = new Datastore({ filename: path.join(dbDir, `errors_${getTodayDateStr()}.db`), autoload: true });
-const lastDb = new Datastore({ filename: path.join(dbDir, `last_${getTodayDateStr()}.db`), autoload: true });
-const db = new Datastore({ filename: path.join(dbDir, `epc_success_${getTodayDateStr()}.db`), autoload: true });
+const errorDb = new Datastore({
+  filename: path.join(dbDir, `errors_${getTodayDateStr()}.db`),
+  autoload: true,
+});
+const lastDb = new Datastore({
+  filename: path.join(dbDir, `last_${getTodayDateStr()}.db`),
+  autoload: true,
+});
+const db = new Datastore({
+  filename: path.join(dbDir, `epc_success_${getTodayDateStr()}.db`),
+  autoload: true,
+});
 
 // Tạo các file log theo ngày
-const successLogFile = path.join(logDir, `epc_success_${getTodayDateStr()}.log`);
+const successLogFile = path.join(
+  logDir,
+  `epc_success_${getTodayDateStr()}.log`
+);
 const failLogFile = path.join(logDir, `epc_fail_${getTodayDateStr()}.log`);
 
 // Xóa các file log cũ hơn 3 ngày
@@ -157,8 +178,6 @@ async function renderTable() {
   // Lấy dữ liệu từ backend
   const data = await fetchTableData();
 
-  console.log("data", data);
-
   // Hiển thị dữ liệu trong bảng
   tableBody.innerHTML = ""; // Clear existing rows
   data.map((item) => {
@@ -201,7 +220,7 @@ async function fetchTableData() {
     if (result.success) {
       if (previousMoNo && currentMono && currentMono !== previousMoNo) {
         if (!hasNotified) {
-          notiSound.play();
+          // notiSound.play();
           hasNotified = true; // Đặt cờ đã phát âm thanh
         }
       } else {
@@ -286,7 +305,6 @@ epcCodeInput.addEventListener("input", () => {
         .invoke("call-sp-upsert-epc", epcCode)
         .then((result) => {
           console.log("Stored procedure result:", result);
-          let logs = [];
           if (result.success && result.returnValue == 0) {
             const notification = document.createElement("div");
             notification.className = "notification error";
@@ -311,7 +329,7 @@ epcCodeInput.addEventListener("input", () => {
               if (!isNew) {
                 // Đã quét rồi, hiển thị thông báo
                 const notification = document.createElement("div");
-                notification.className = "notification error";
+                notification.className = "notification warning";
                 notification.innerText = `Tem đã được quét trong hôm nay: ${epcCode} (Lúc: ${doc.record_time})`;
                 document.body.appendChild(notification);
                 lastList.push(epcCode);
@@ -324,27 +342,64 @@ epcCodeInput.addEventListener("input", () => {
             });
           }
 
-          if (result.success && result.returnValue == -1) {
-            const notification = document.createElement("div");
-            notification.className = "notification error";
-            notification.innerText = `Tem đã được quét vào ngày trước đó : ${epcCode}`;
-            document.body.appendChild(notification);
-          
-            lastList.push(epcCode);
-          
-            // Ghi log vào file epc_duplicate.log
-            logToFile(failLogFile, `EPC ${epcCode}`);
-          
-            setTimeout(() => {
-              notification.remove();
-            }, 5000);
+          if (result.success && result.returnValue === -1) {
+            db.findOne({ epc: epcCode }, (err, doc) => {
+              if (err) {
+                console.error("Lỗi DB khi kiểm tra EPC:", err);
+                return;
+              }
+
+              const notification = document.createElement("div");
+
+              let message = "";
+
+              if (doc) {
+                notification.className = "notification warning";
+                // Tem đã được quét trong hôm nay
+                message = `Tem đã được quét trong ngày hôm nay: ${epcCode} (Lúc: ${doc.record_time})`;
+                notification.innerText = message;
+                document.body.appendChild(notification);
+                setTimeout(() => {
+                  notification.remove();
+                }, 5000);
+              } else {
+                notification.className = "notification error      ";
+                // Tem đã được quét vào ngày trước đó → log & lưu error
+                message = `Tem đã được quét vào ngày trước đó: ${epcCode}`;
+                notification.innerText = message;
+                document.body.appendChild(notification);
+                lastList.push(epcCode);
+
+                // Kiểm tra nếu chưa có trong lastDb thì mới lưu
+                lastDb.findOne({ epc: epcCode }, (err, existingError) => {
+                  if (err) {
+                    console.error("Lỗi DB khi kiểm tra lỗi EPC:", err);
+                    return;
+                  }
+
+                  if (!existingError) {
+                    const record = {
+                      epc: epcCode,
+                      record_time: formatDate(new Date()),
+                    };
+                    lastDb.insert(record);
+                    logToFile(failLogFile, `${epcCode}`);
+                  }
+                });
+
+                setTimeout(() => {
+                  notification.remove();
+                }, 5000);
+              }
+            });
           }
+          updateLastCount();
+
           renderTable();
           fetchDataCount();
           successAnimation.classList.remove("hidden");
           successAnimation.classList.add("show");
           if (hasNotified) {
-
             hasNotified = false;
           }
 
@@ -364,6 +419,7 @@ epcCodeInput.addEventListener("input", () => {
           epcCodeInput.focus();
         });
     }
+
 
     // Sau khi xử lý xong, xóa nội dung của input và focus lại
   }, 200); // 500ms = 0.5 giây
@@ -586,6 +642,7 @@ const lastTableBody = document.getElementById("last-table-body");
 
 lastBtn.addEventListener("click", () => {
   updateLastTable();
+  updateLastCount();
   modalLast.style.display = "flex";
 });
 
@@ -646,7 +703,6 @@ function updateLastCount() {
 }
 
 updateLastCount();
-// xóa error cuối ngày
 
 function cleanOldDataLast() {
   const today = new Date();
@@ -685,7 +741,7 @@ function updateLastTable() {
     docs.forEach((doc, index) => {
       const row = document.createElement("tr");
       row.innerHTML = `
-        <td>${doc.epcCode}</td>
+        <td>${doc.epc}</td>
         <td>
           <button hidden disabled class="delete-last-btn" data-id="${doc._id}">Xóa</button>
         </td>
@@ -715,9 +771,15 @@ function removeLast(id) {
 }
 
 function formatDate(date) {
-  const pad = (num, size = 2) => String(num).padStart(size, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
-         `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`;
+  const pad = (num, size = 2) => String(num).padStart(size, "0");
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+      date.getDate()
+    )} ` +
+    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(
+      date.getSeconds()
+    )}.${pad(date.getMilliseconds(), 3)}`
+  );
 }
 
 function saveEpcIfNew(epc, callback) {
@@ -730,7 +792,7 @@ function saveEpcIfNew(epc, callback) {
     } else {
       const record = {
         epc,
-        record_time: formatDate(new Date())
+        record_time: formatDate(new Date()),
       };
       db.insert(record, (err, newDoc) => {
         if (err) return callback(err);
@@ -739,7 +801,6 @@ function saveEpcIfNew(epc, callback) {
     }
   });
 }
-
 
 const versionApp = process.env.VERSION_APP;
 

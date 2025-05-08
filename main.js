@@ -71,17 +71,7 @@ app.on("window-all-closed", () => {
   }
 });
 
-// ipcMain.handle("check-db-connection", async () => {
-// try {
-// const pool = await sql.connect(config);
-// // await sql.close();
-// return { success: true, message: "Database connected" };
-// } catch (error) {
-// return { success: false, message: error.message };
-// }
-// });
-// Hàm xử lý gọi thủ tục lưu trữ qua IPC
-// console.log("Database Server:", config.server);
+
 ipcMain.handle(
   "call-stored-procedure",
   async (event, procedureName, params) => {

@@ -271,7 +271,7 @@ h3 {
   right: 50px;
   padding: 15px 20px;
   border-radius: 5px;
-  color: white;
+
   font-size: 18px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   z-index: 1000;
@@ -281,10 +281,16 @@ h3 {
 
 .notification.success {
   background-color: #4caf50; /* Màu xanh lá cho thành công */
+  color: white;
+}
+.notification.warning {
+  background-color: #FFE100; /* Màu xanh lá cho thành công */
+  color: black;
 }
 
 .notification.error {
   background-color: #f44336; /* Màu đỏ cho lỗi */
+  color: white;
 }
 
 @keyframes fadeInOut {
