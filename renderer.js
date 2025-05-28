@@ -12,29 +12,23 @@ const fs = require("fs");
 const logDir = path.join(__dirname, "logs");
 const dbDir = path.join(__dirname, "db");
 
+
 // Hàm lấy ngày hiện tại dạng YYYY-MM-DD
-function getTodayDateStr() {
+function getTodayDateStr() {   
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
-    2,
-    "0"
-  )}-${String(d.getDate()).padStart(2, "0")}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 // Hàm định dạng lại thời gian theo kiểu "YYYY-MM-DD HH:mm:ss.SSS"
 function formatDate(date) {
   const pad = (num, size = 2) => String(num).padStart(size, "0");
   return (
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
-      date.getDate()
-    )} ` +
-    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(
-      date.getSeconds()
-    )}.${pad(date.getMilliseconds(), 3)}`
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`
   );
 }
 
-// Hàm ghi log vào file
+// Ghi log ra file
 function logToFile(filePath, message) {
   const logEntry = {
     message,
@@ -43,20 +37,25 @@ function logToFile(filePath, message) {
   fs.appendFileSync(filePath, JSON.stringify(logEntry) + "\n");
 }
 
+// Xóa các file log cũ hơn 3 ngày
 function cleanOldLogs() {
-  const todayStr = getTodayDateStr();
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - 3); // 3 ngày trước
 
   fs.readdirSync(logDir).forEach((file) => {
-    if (file.endsWith(".log")) {
-      const fileDateStr = file.split("_")[1].split(".")[0]; // Lấy ngày từ tên file (ví dụ: epc_success_2025-05-05.log)
-      const fileDate = new Date(fileDateStr);
+    if (!file.endsWith(".log")) return;
 
-      if (fileDate < cutoffDate) {
-        fs.unlinkSync(path.join(logDir, file)); // Xóa file cũ
-        console.log("Đã xóa file log cũ:", file);
-      }
+    // Ví dụ tên: epc_success_2025-05-05.log
+    const match = file.match(/\d{4}-\d{2}-\d{2}/); // tìm chuỗi ngày
+    if (!match) {
+      console.warn("File log sai định dạng:", file);
+      return;
+    }
+
+    const fileDate = new Date(match[0]);
+    if (!isNaN(fileDate) && fileDate < cutoffDate) {
+      fs.unlinkSync(path.join(logDir, file));
+      console.log("Đã xóa file log cũ:", file);
     }
   });
 }
@@ -66,8 +65,8 @@ if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
 if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
 
 // Xóa các file DB cũ không phải ngày hôm nay
+const todayStr = getTodayDateStr();
 fs.readdirSync(dbDir).forEach((file) => {
-  const todayStr = getTodayDateStr();
   if (!file.includes(todayStr) && file.endsWith(".db")) {
     fs.unlinkSync(path.join(dbDir, file));
     console.log("Đã xóa file DB cũ:", file);
@@ -75,28 +74,18 @@ fs.readdirSync(dbDir).forEach((file) => {
 });
 
 // Tạo các DB file theo ngày
-const errorDb = new Datastore({
-  filename: path.join(dbDir, `errors_${getTodayDateStr()}.db`),
-  autoload: true,
-});
-const lastDb = new Datastore({
-  filename: path.join(dbDir, `last_${getTodayDateStr()}.db`),
-  autoload: true,
-});
-const db = new Datastore({
-  filename: path.join(dbDir, `epc_success_${getTodayDateStr()}.db`),
-  autoload: true,
-});
+const errorDb = new Datastore({ filename: path.join(dbDir, `errors_${todayStr}.db`), autoload: true });
+const lastDb = new Datastore({ filename: path.join(dbDir, `last_${todayStr}.db`), autoload: true });
+const db = new Datastore({ filename: path.join(dbDir, `epc_success_${todayStr}.db`), autoload: true });
 
 // Tạo các file log theo ngày
-const successLogFile = path.join(
-  logDir,
-  `epc_success_${getTodayDateStr()}.log`
-);
-const failLogFile = path.join(logDir, `epc_fail_${getTodayDateStr()}.log`);
+const successLogFile = path.join(logDir, `epc_success_${todayStr}.log`);
+const failLogFile = path.join(logDir, `epc_fail_${todayStr}.log`);
 
-// Xóa các file log cũ hơn 3 ngày
+// Xóa log cũ
 cleanOldLogs();
+
+
 let lastList = [];
 function checkOnlineStatus() {
   const networkButton = document.getElementById("networkButton");
@@ -194,7 +183,7 @@ async function renderTable() {
 
     const actionCell = document.createElement("td");
     const deleteIcon = document.createElement("span");
-    deleteIcon.textContent = "Xóa";
+    deleteIcon.textContent = "លុប";
     deleteIcon.classList.add("delete-icon");
     deleteIcon.addEventListener("click", () => {
       const matchkeyid = row.getAttribute("data-keyid");
@@ -305,12 +294,12 @@ epcCodeInput.addEventListener("input", () => {
         .invoke("call-sp-upsert-epc", epcCode)
         .then(async (result) => {
           const infor = await ipcRenderer.invoke("get-infor", epcCode);
-          let size = infor.success && infor.record ? infor.record.size_numcode : "Không rõ";
-          let mono = infor.success && infor.record ? infor.record.mo_no : "Không rõ";
+          let size = infor.success && infor.record ? infor.record.size_numcode : "មិនច្បាស់";
+          let mono = infor.success && infor.record ? infor.record.mo_no : "មិនច្បាស់";
           if (result.success && result.returnValue == 0) {
             const notification = document.createElement("div");
             notification.className = "notification error";
-            notification.innerText = `Tem quét chưa được phối hoặc bị lỗi: ${epcCode}`;
+            notification.innerText = `EPC មិនត្រូវបានផ្គូផ្គង ឬ មានបញ្ហា: ${epcCode}`;
             document.body.appendChild(notification);
 
             // Ẩn thông báo sau 3 giây
@@ -332,7 +321,7 @@ epcCodeInput.addEventListener("input", () => {
                 // Đã quét rồi, hiển thị thông báo
                 const notification = document.createElement("div");
                 notification.className = "notification warning";
-                notification.innerText = `Tem đã được quét trong hôm nay: ${epcCode} - Size:${size} -${mono} (Lúc: ${doc.record_time})`;
+                notification.innerText = `EPC ត្រូវបានស្កេននៅក្នុងថ្ងៃនេះ ${epcCode} - Size:${size} -${mono} (ពេល: ${doc.record_time})`;
                 document.body.appendChild(notification);
                 lastList.push(epcCode);
                 setTimeout(() => {
@@ -358,7 +347,7 @@ epcCodeInput.addEventListener("input", () => {
               if (doc) {
                 notification.className = "notification warning";
                 // Tem đã được quét trong hôm nay
-                message = `Tem đã được quét trong ngày hôm nay: ${epcCode} - Size:${size} -${mono} (Lúc: ${doc.record_time})`;
+                message = `EPC ត្រូវបានស្កេននៅក្នុងថ្ងៃនេះ ${epcCode} - Size:${size} -${mono} (ពេល: ${doc.record_time})`;
                 notification.innerText = message;
                 document.body.appendChild(notification);
                 setTimeout(() => {
@@ -367,7 +356,7 @@ epcCodeInput.addEventListener("input", () => {
               } else {
                 notification.className = "notification error      ";
                 // Tem đã được quét vào ngày trước đó → log & lưu error
-                message = `Tem đã được quét vào ngày trước đó: ${epcCode} - Size: ${size} - ${mono}`;
+                message = `EPC ត្រូវបានស្កេននៅក្នុងថ្ងៃមុន: ${epcCode} - Size: ${size} - ${mono}`;
                 notification.innerText = message;
                 document.body.appendChild(notification);
                 lastList.push(epcCode);
@@ -442,7 +431,7 @@ function addEPCRow(epcCode) {
 
   const actionCell = document.createElement("td");
   const deleteIcon = document.createElement("span");
-  deleteIcon.textContent = "Xóa";
+  deleteIcon.textContent = "លុប";
   deleteIcon.classList.add("delete-icon");
 
   row.appendChild(epcCell);
@@ -510,7 +499,7 @@ const stationNo = process.env.STATION_NO;
 // Ghi vào HTML
 const stationElement = document.querySelector("h2");
 if (stationElement) {
-  stationElement.textContent = `TRẠM ${stationNo}`;
+  stationElement.textContent = `ស្ថានីយ៍ ${stationNo}`;
 }
 
 // modal
@@ -524,24 +513,7 @@ errorBtn.addEventListener("click", () => {
   modal.style.display = "flex";
 });
 
-// Cập nhật bảng tem lỗi
-// function updateErrorTable() {
-//   errorTableBody.innerHTML = ""; // Xóa nội dung cũ
-//   if (errorList.length === 0) {
-//     errorTableBody.innerHTML = `<tr><td colspan="2">Không có tem lỗi</td></tr>`;
-//     return;
-//   }
-//   errorList.forEach((error, index) => {
-//     const row = document.createElement("tr");
-//     row.innerHTML = `
-//       <td>${error}</td>
 
-//     `;
-//     errorTableBody.appendChild(row);
-//   });
-
-//   // Thêm sự kiện xóa cho từng nút
-// }
 
 // Đóng modal khi bấm nút close
 closeModalBtn.addEventListener("click", () => {
@@ -600,7 +572,7 @@ function updateErrorTable() {
 
     errorTableBody.innerHTML = ""; // Xóa nội dung cũ
     if (docs.length === 0) {
-      errorTableBody.innerHTML = `<tr><td colspan="2">Không có tem lỗi</td></tr>`;
+      errorTableBody.innerHTML = `<tr><td colspan="2">មិនមានស្លាកខូចទេ</td></tr>`;
       return;
     }
 
@@ -609,7 +581,7 @@ function updateErrorTable() {
       row.innerHTML = `
         <td>${doc.epcCode}</td>
         <td>
-          <span hidden disabled class="delete-btn" data-id="${doc._id}">Xóa</span>
+          <span hidden disabled class="delete-btn" data-id="${doc._id}">លុប</span>
         </td>
       `;
       errorTableBody.appendChild(row);
@@ -665,7 +637,7 @@ updateLastCount();
 function updateLastTable() {
   lastTableBody.innerHTML = ""; // Xóa nội dung cũ
   if (lastList.length === 0) {
-    lastTableBody.innerHTML = `<tr><td colspan="2">Không có tem lỗi</td></tr>`;
+    lastTableBody.innerHTML = `<tr><td colspan="2">មិនមានស្លាកខូចទេ</td></tr>`;
     return;
   }
   lastList.forEach((error, index) => {
@@ -736,7 +708,7 @@ function updateLastTable() {
 
     lastTableBody.innerHTML = ""; // Xóa nội dung cũ
     if (docs.length === 0) {
-      lastTableBody.innerHTML = `<tr><td colspan="2">Không có tem lỗi</td></tr>`;
+      lastTableBody.innerHTML = `<tr><td colspan="2">មិនមានស្លាកខូចទេ</td></tr>`;
       return;
     }
 
@@ -745,7 +717,7 @@ function updateLastTable() {
       row.innerHTML = `
         <td>${doc.epc}</td>
         <td>
-          <button hidden disabled class="delete-last-btn" data-id="${doc._id}">Xóa</button>
+          <button hidden disabled class="delete-last-btn" data-id="${doc._id}">លុប</button>
         </td>
       `;
       lastTableBody.appendChild(row);

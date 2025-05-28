@@ -211,10 +211,12 @@ ipcMain.handle(
     try {
       const pool = await sql.connect(config);
 
-      const query = `
+      const query = ` 
+       DECLARE @DayNow DATETIME = CAST(GETDATE() AS DATE);
         SELECT TOP 10 r.EPC_Code, r.size_code, r.mo_no, r.matchkeyid, r.created
         FROM dv_RFIDrecordmst r
         WHERE StationNo LIKE @StationNo
+          AND record_time > @DayNow
         ORDER BY COALESCE(r.updated, r.record_time) DESC;
         `;
 
