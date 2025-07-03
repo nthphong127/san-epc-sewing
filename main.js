@@ -227,7 +227,7 @@ ipcMain.handle(
         .query(query);
 
       await sql.close();
-
+      
       return { success: true, records: result.recordset };
     } catch (error) {
       console.error("Database query error:", error);

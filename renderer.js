@@ -164,14 +164,42 @@ async function fetchDataCount() {
 
 //**************TABLE***********//
 async function renderTable() {
-  // Lấy dữ liệu từ backend
   const data = await fetchTableData();
 
-  // Hiển thị dữ liệu trong bảng
-  tableBody.innerHTML = ""; // Clear existing rows
-  data.map((item) => {
+  // Bước 1: Đếm tần suất mo_no
+  const moNoCounts = {};
+  data.forEach((item) => {
+    moNoCounts[item.mo_no] = (moNoCounts[item.mo_no] || 0) + 1;
+  });
+
+  // Bước 2: Tìm mo_no xuất hiện nhiều nhất
+  let maxMoNo = null;
+  let maxCount = 0;
+  for (const moNo in moNoCounts) {
+    if (moNoCounts[moNo] > maxCount) {
+      maxCount = moNoCounts[moNo];
+      maxMoNo = moNo;
+    }
+  }
+
+  // Bước 3: Gán màu cho các mo_no lẻ
+  const colorClasses = ["blink-color-1", "blink-color-2", "blink-color-3", "blink-color-4"];
+  const moNoToColorClass = {};
+  let colorIndex = 0;
+
+  data.forEach(item => {
+    if (item.mo_no !== maxMoNo && !moNoToColorClass[item.mo_no]) {
+      moNoToColorClass[item.mo_no] = colorClasses[colorIndex % colorClasses.length];
+      colorIndex++;
+    }
+  });
+
+  // Bước 4: Render bảng
+  tableBody.innerHTML = "";
+  data.forEach((item) => {
     const row = document.createElement("tr");
     row.setAttribute("data-keyid", item.matchkeyid);
+
     const epcCell = document.createElement("td");
     epcCell.textContent = item.EPC_Code;
 
@@ -183,13 +211,22 @@ async function renderTable() {
 
     const actionCell = document.createElement("td");
     const deleteIcon = document.createElement("span");
-    deleteIcon.textContent = "លុប";
+    deleteIcon.textContent = "Xóa";
     deleteIcon.classList.add("delete-icon");
+
+    // Nếu là mo_no lẻ => gán class màu riêng
+    if (item.mo_no !== maxMoNo) {
+      const colorClass = moNoToColorClass[item.mo_no];
+      row.classList.add(colorClass);
+      deleteIcon.classList.add(colorClass);
+    }
+
     deleteIcon.addEventListener("click", () => {
       const matchkeyid = row.getAttribute("data-keyid");
       console.log("Deleting row with keyid:", matchkeyid);
       deleteRow(item.EPC_Code, matchkeyid);
     });
+
     actionCell.appendChild(deleteIcon);
 
     row.appendChild(epcCell);
@@ -199,6 +236,7 @@ async function renderTable() {
     tableBody.appendChild(row);
   });
 }
+
 
 //**************Lấy data show vào table ***********//
 async function fetchTableData() {
@@ -286,7 +324,7 @@ epcCodeInput.addEventListener("input", () => {
     if (epcCode) {
       addEPCRow(epcCode);
       console.log("Calling stored procedure with EPC:", epcCode);
-
+ 
       epcCodeInput.disabled = true;
       // Gọi hàm trong main process để xử lý stored procedure
 
@@ -294,12 +332,12 @@ epcCodeInput.addEventListener("input", () => {
         .invoke("call-sp-upsert-epc", epcCode)
         .then(async (result) => {
           const infor = await ipcRenderer.invoke("get-infor", epcCode);
-          let size = infor.success && infor.record ? infor.record.size_numcode : "មិនច្បាស់";
-          let mono = infor.success && infor.record ? infor.record.mo_no : "មិនច្បាស់";
+          let size = infor.success && infor.record ? infor.record.size_numcode : "Lỗi";
+          let mono = infor.success && infor.record ? infor.record.mo_no : "Lỗi";
           if (result.success && result.returnValue == 0) {
             const notification = document.createElement("div");
             notification.className = "notification error";
-            notification.innerText = `EPC មិនត្រូវបានផ្គូផ្គង ឬ មានបញ្ហា: ${epcCode}`;
+            notification.innerText = `EPC chưa được phối hoặc bị lỗi: ${epcCode}`;
             document.body.appendChild(notification);
 
             // Ẩn thông báo sau 3 giây
@@ -321,7 +359,7 @@ epcCodeInput.addEventListener("input", () => {
                 // Đã quét rồi, hiển thị thông báo
                 const notification = document.createElement("div");
                 notification.className = "notification warning";
-                notification.innerText = `EPC ត្រូវបានស្កេននៅក្នុងថ្ងៃនេះ ${epcCode} - Size:${size} -${mono} (ពេល: ${doc.record_time})`;
+                notification.innerText = `EPC đã được quét hôm nay: ${epcCode} - Size:${size} -${mono} (Lúc: ${doc.record_time})`;
                 document.body.appendChild(notification);
                 lastList.push(epcCode);
                 setTimeout(() => {
@@ -347,7 +385,7 @@ epcCodeInput.addEventListener("input", () => {
               if (doc) {
                 notification.className = "notification warning";
                 // Tem đã được quét trong hôm nay
-                message = `EPC ត្រូវបានស្កេននៅក្នុងថ្ងៃនេះ ${epcCode} - Size:${size} -${mono} (ពេល: ${doc.record_time})`;
+                message = `EPC đã được quét hôm nay: ${epcCode} - Size:${size} -${mono} (Lúc: ${doc.record_time})`;
                 notification.innerText = message;
                 document.body.appendChild(notification);
                 setTimeout(() => {
@@ -356,7 +394,7 @@ epcCodeInput.addEventListener("input", () => {
               } else {
                 notification.className = "notification error      ";
                 // Tem đã được quét vào ngày trước đó → log & lưu error
-                message = `EPC ត្រូវបានស្កេននៅក្នុងថ្ងៃមុន: ${epcCode} - Size: ${size} - ${mono}`;
+                message = `EPC đã được quét vào ngày trước đó: ${epcCode} - Size: ${size} - ${mono}`;
                 notification.innerText = message;
                 document.body.appendChild(notification);
                 lastList.push(epcCode);
@@ -431,7 +469,7 @@ function addEPCRow(epcCode) {
 
   const actionCell = document.createElement("td");
   const deleteIcon = document.createElement("span");
-  deleteIcon.textContent = "លុប";
+  deleteIcon.textContent = "xóa";
   deleteIcon.classList.add("delete-icon");
 
   row.appendChild(epcCell);
@@ -499,7 +537,7 @@ const stationNo = process.env.STATION_NO;
 // Ghi vào HTML
 const stationElement = document.querySelector("h2");
 if (stationElement) {
-  stationElement.textContent = `ស្ថានីយ៍ ${stationNo}`;
+  stationElement.textContent = `Trạm ${stationNo}`;
 }
 
 // modal
@@ -572,7 +610,7 @@ function updateErrorTable() {
 
     errorTableBody.innerHTML = ""; // Xóa nội dung cũ
     if (docs.length === 0) {
-      errorTableBody.innerHTML = `<tr><td colspan="2">មិនមានស្លាកខូចទេ</td></tr>`;
+      errorTableBody.innerHTML = `<tr><td colspan="2">Không có EPC hỏng</td></tr>`;
       return;
     }
 
@@ -581,7 +619,7 @@ function updateErrorTable() {
       row.innerHTML = `
         <td>${doc.epcCode}</td>
         <td>
-          <span hidden disabled class="delete-btn" data-id="${doc._id}">លុប</span>
+          <span hidden disabled class="delete-btn" data-id="${doc._id}">Xóa</span>
         </td>
       `;
       errorTableBody.appendChild(row);
@@ -637,7 +675,7 @@ updateLastCount();
 function updateLastTable() {
   lastTableBody.innerHTML = ""; // Xóa nội dung cũ
   if (lastList.length === 0) {
-    lastTableBody.innerHTML = `<tr><td colspan="2">មិនមានស្លាកខូចទេ</td></tr>`;
+    lastTableBody.innerHTML = `<tr><td colspan="2">Không có EPC hỏng</td></tr>`;
     return;
   }
   lastList.forEach((error, index) => {
@@ -708,7 +746,7 @@ function updateLastTable() {
 
     lastTableBody.innerHTML = ""; // Xóa nội dung cũ
     if (docs.length === 0) {
-      lastTableBody.innerHTML = `<tr><td colspan="2">មិនមានស្លាកខូចទេ</td></tr>`;
+      lastTableBody.innerHTML = `<tr><td colspan="2">Không có EPC hỏng</td></tr>`;
       return;
     }
 
@@ -717,7 +755,7 @@ function updateLastTable() {
       row.innerHTML = `
         <td>${doc.epc}</td>
         <td>
-          <button hidden disabled class="delete-last-btn" data-id="${doc._id}">លុប</button>
+          <button hidden disabled class="delete-last-btn" data-id="${doc._id}">Xóa</button>
         </td>
       `;
       lastTableBody.appendChild(row);

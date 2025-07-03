@@ -381,3 +381,66 @@ h3 {
   font-size: 20px;
   cursor: pointer;
 }
+.blink-row {
+  animation: blink-bg 2s infinite;
+  color: white;
+}
+
+@keyframes blink-bg {
+  0% { background-color: red; }
+  50% { background-color: white; color: red; }
+  100% { background-color: red; }
+}
+.blink-icon {
+  animation: blink-icon-bg 2s infinite;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+@keyframes blink-icon-bg {
+  0% { background-color: red; }
+  50% { background-color: white; color: red; }
+  100% { background-color: red; }
+}
+@keyframes blink-yellow {
+  0%, 100% { background-color: yellow; color: black; }
+  50% { background-color: white; color: orange; }
+}
+
+@keyframes blink-orange {
+  0%, 100% { background-color: orange; color: white; }
+  50% { background-color: white; color: orange; }
+}
+
+@keyframes blink-blue {
+  0%, 100% { background-color: red; color: white; }
+  50% { background-color: whi; color: white; }
+}
+
+@keyframes blink-green {
+  0%, 100% { background-color: lightgreen; color: black; }
+  50% { background-color: white; color: green; }
+}
+
+/* Classes gán */
+.blink-color-1 {
+  animation: blink-yellow 3s infinite;
+  border-radius: 4px;
+}
+
+.blink-color-2 {
+  animation: blink-orange 3s infinite;
+  border-radius: 4px;
+}
+
+.blink-color-3 {
+  animation: blink-blue 3s infinite;
+  border-radius: 4px;
+}
+
+.blink-color-4 {
+  animation: blink-green 3s infinite;
+  border-radius: 4px;
+}
+
