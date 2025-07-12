@@ -814,6 +814,29 @@ function saveEpcIfNew(epc, callback) {
   });
 }
 
+async function fetchTargetQty(stationNos) {
+  try {
+    const response = await ipcRenderer.invoke("get-qty-target", stationNos);
+
+    if (response.success && response.record) {
+      console.log('goi thanh cong');
+      
+      document.getElementById("target-count").textContent = response.record.pr_qty;
+    } else {
+      console.error("Không có dữ liệu hoặc lỗi:", response.message);
+      document.getElementById("target-count").textContent = "0";
+    }
+  } catch (err) {
+    console.error("Lỗi khi gọi ipcRenderer:", err);
+    document.getElementById("target-count").textContent = "0";
+  }
+}
+
+
+fetchTargetQty();
+setInterval(() => {
+  fetchTargetQty(stationNos);
+}, 2 * 60 * 60 * 1000);
 const versionApp = process.env.VERSION_APP;
 
 const versionElement = document.querySelector("title");

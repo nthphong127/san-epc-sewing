@@ -71,7 +71,6 @@ app.on("window-all-closed", () => {
   }
 });
 
-
 ipcMain.handle(
   "call-stored-procedure",
   async (event, procedureName, params) => {
@@ -129,7 +128,6 @@ WHERE
 
 const fs = require("fs"); // Import module file system
 
-
 // Tạo ngày hiện tại theo format YYYY-MM-DD
 const today = new Date();
 const dateString = today.toISOString().slice(0, 10); // "2025-04-26"
@@ -137,12 +135,10 @@ const dateString = today.toISOString().slice(0, 10); // "2025-04-26"
 // Tạo đường dẫn log mới theo ngày
 const logDir = path.join(__dirname, "logs");
 
-
 // Kiểm tra nếu thư mục log chưa tồn tại thì tạo mới
 if (!fs.existsSync(logDir)) {
   fs.mkdirSync(logDir, { recursive: true });
 }
-
 
 ipcMain.handle("call-sp-upsert-epc", async (event, epc, stationNo) => {
   if (!isOnline) {
@@ -182,10 +178,10 @@ ipcMain.handle("call-sp-upsert-epc", async (event, epc, stationNo) => {
 
     // Nếu stored procedure chạy thành công
     const now = new Date();
-    const formattedNow = now.toLocaleString().replace("T", " ").substring(0, 19); // "2025-04-04 12:00:00"
-
-
-
+    const formattedNow = now
+      .toLocaleString()
+      .replace("T", " ")
+      .substring(0, 19); // "2025-04-04 12:00:00"
 
     // Log kết quả procedure
     if (result.returnValue === 1) {
@@ -227,7 +223,7 @@ ipcMain.handle(
         .query(query);
 
       await sql.close();
-      
+
       return { success: true, records: result.recordset };
     } catch (error) {
       console.error("Database query error:", error);
@@ -259,7 +255,6 @@ ipcMain.handle("get-infor", async (event, epc) => {
     return { success: false, message: error.message };
   }
 });
-
 
 const logDeleteFilePath = path.join(logDir, "delete.log"); // Đường dẫn file log delete
 // Kiểm tra nếu thư mục log chưa tồn tại thì tạo mới
@@ -322,6 +317,31 @@ ipcMain.handle("show-confirm-dialog", async (event, message) => {
     detail: message,
   });
   return result === 0;
+});
+
+ipcMain.handle("get-qty-target", async (event, message) => {
+  try {
+    const pool = await sql.connect(config);
+
+    const query = `
+     SELECT TOP 1 a.pr_qty FROM  dv_production_daily a 
+      LEFT JOIN dv_rfidreader b ON a.pr_dept_code  = b.dept_code
+      WHERE a.pr_date = CAST(GETDATE() AS DATE)
+      AND b.device_name = @StationNo;
+    `;
+
+    const result = await pool
+      .request()
+      .input("StationNo", sql.NVarChar, stationNos)
+      .query(query);
+
+    await sql.close();
+
+    return { success: true, record: result.recordset[0] || null };
+  } catch (error) {
+    console.error("Database query error:", error);
+    return { success: false, message: error.message };
+  }
 });
 
 //*********************Xử lý data offline**************************//
