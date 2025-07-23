@@ -2,18 +2,26 @@
   "name": "scan-epc",
   "version": "1.0.0",
   "main": "main.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "electron .",
-    "build": "electron-builder"
-  },
-  "keywords": [],
-  "author": "",
+  "description": "Ứng dụng quét EPC",
+  "author": "Phong",
   "license": "ISC",
-  "description": "",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "postinstall": "electron-builder install-app-deps"
+  },
   "devDependencies": {
-    "electron": "^19.1.9",
-    "electron-builder": "^22.14.13"
+    "electron": "^37.2.3",
+    "electron-builder": "^26.0.12"
+  },
+  "dependencies": {
+    "classic": "^0.0.2",
+    "dotenv": "^16.4.7",
+    "electron-log": "^5.4.1",
+    "electron-updater": "^6.6.2",
+    "mssql": "^11.0.1",
+    "nedb": "^1.8.0",
+    "nodb": "^0.0.1"
   },
   "build": {
     "appId": "com.my-electron-app",
@@ -33,25 +41,22 @@
       "list-scan.db",
       "offline.db",
       "node_modules/**/*",
-      "dist/**/*",
-      "assets/*"
+      "assets/**/*"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "YOUR_GITHUB_USERNAME",
+        "repo": "YOUR_REPO_NAME"
+      }
     ],
     "win": {
-      "target": [
-        "nsis"
-      ],
+      "target": ["nsis"],
       "artifactName": "${productName}-setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
     }
-  },
-  "dependencies": {
-    "classic": "^0.0.2",
-    "dotenv": "^16.4.7",
-    "mssql": "^11.0.1",
-    "nedb": "^1.8.0",
-    "nodb": "^0.0.1"
   }
 }

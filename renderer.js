@@ -1,30 +1,74 @@
 const { ipcRenderer } = require("electron");
-
-//**************Kiểm tra mạng************//
-var tableBody = document.getElementById("table-body");
-let previousMoNo = null;
-let hasNotified = true;
 const Datastore = require("nedb");
 const path = require("path");
 const fs = require("fs");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
+
+// ************ Cấu hình ngôn ngữ ************ //
+const lang = process.env.lang || "en";
+
+function loadLang(langCode) {
+  const langFilePath = path.join(__dirname, "lang", `${langCode}.json`);
+  try {
+    const raw = fs.readFileSync(langFilePath, "utf-8");
+    const data = JSON.parse(raw);
+    currentDict = data; // <- gán vào biến toàn cục
+    applyLang(data);
+  } catch (err) {
+    console.error("Không load được file ngôn ngữ:", err);
+  }
+}
+
+function applyLang(dict) {
+  // xử lý theo id như cũ
+  Object.keys(dict).forEach((key) => {
+    // set theo id (nếu có)
+    const el = document.getElementById(key);
+    if (el) el.innerText = dict[key];
+
+    // set theo class (nếu trùng nhiều)
+    const elements = document.querySelectorAll(`.${key}`);
+    elements.forEach((e) => {
+      e.innerText = dict[key];
+    });
+  });
+}
+
+// Gọi khi DOM sẵn sàng
+document.addEventListener("DOMContentLoaded", () => {
+  loadLang(lang);
+});
+
+// ************** Logic mạng và xử lý khác ************** //
+var tableBody = document.getElementById("table-body");
+let previousMoNo = null;
+let hasNotified = true;
+
+// ... các đoạn xử lý khác của mày bên dưới ...
 
 // Đường dẫn tới thư mục db và log
 const logDir = path.join(__dirname, "logs");
 const dbDir = path.join(__dirname, "db");
 
-
 // Hàm lấy ngày hiện tại dạng YYYY-MM-DD
-function getTodayDateStr() {   
+function getTodayDateStr() {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 // Hàm định dạng lại thời gian theo kiểu "YYYY-MM-DD HH:mm:ss.SSS"
 function formatDate(date) {
   const pad = (num, size = 2) => String(num).padStart(size, "0");
   return (
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
-    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+      date.getDate()
+    )} ` +
+    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(
+      date.getSeconds()
+    )}.${pad(date.getMilliseconds(), 3)}`
   );
 }
 
@@ -74,9 +118,18 @@ fs.readdirSync(dbDir).forEach((file) => {
 });
 
 // Tạo các DB file theo ngày
-const errorDb = new Datastore({ filename: path.join(dbDir, `errors_${todayStr}.db`), autoload: true });
-const lastDb = new Datastore({ filename: path.join(dbDir, `last_${todayStr}.db`), autoload: true });
-const db = new Datastore({ filename: path.join(dbDir, `epc_success_${todayStr}.db`), autoload: true });
+const errorDb = new Datastore({
+  filename: path.join(dbDir, `errors_${todayStr}.db`),
+  autoload: true,
+});
+const lastDb = new Datastore({
+  filename: path.join(dbDir, `last_${todayStr}.db`),
+  autoload: true,
+});
+const db = new Datastore({
+  filename: path.join(dbDir, `epc_success_${todayStr}.db`),
+  autoload: true,
+});
 
 // Tạo các file log theo ngày
 const successLogFile = path.join(logDir, `epc_success_${todayStr}.log`);
@@ -84,7 +137,6 @@ const failLogFile = path.join(logDir, `epc_fail_${todayStr}.log`);
 
 // Xóa log cũ
 cleanOldLogs();
-
 
 let lastList = [];
 function checkOnlineStatus() {
@@ -98,25 +150,25 @@ function checkOnlineStatus() {
     })
       .then((response) => {
         if (response.ok) {
-          statusElement.innerText = "Network Status: Online";
+          statusElement.innerText = currentDict.statusNetworkOnline;
           networkButton.classList.remove("offline");
           networkButton.classList.add("online");
           ipcRenderer.send("network-status", true); // Gửi trạng thái online
         } else {
-          statusElement.innerText = "Network Status: Offline";
+          statusElement.innerText = currentDict.statusNetworkOffline;
           networkButton.classList.remove("online");
           networkButton.classList.add("offline");
           ipcRenderer.send("network-status", false); // Gửi trạng thái offline
         }
       })
       .catch(() => {
-        statusElement.innerText = "Network Status: Offline";
+        statusElement.innerText = currentDict.statusNetworkOffline;
         networkButton.classList.remove("online");
         networkButton.classList.add("offline");
         ipcRenderer.send("network-status", false); // Gửi trạng thái offline
       });
   } else {
-    statusElement.innerText = "Network Status: Offline";
+    statusElement.innerText = currentDict.statusNetworkOffline;
     networkButton.classList.remove("online");
     networkButton.classList.add("offline");
     ipcRenderer.send("network-status", false); // Gửi trạng thái offline
@@ -183,13 +235,19 @@ async function renderTable() {
   }
 
   // Bước 3: Gán màu cho các mo_no lẻ
-  const colorClasses = ["blink-color-1", "blink-color-2", "blink-color-3", "blink-color-4"];
+  const colorClasses = [
+    "blink-color-1",
+    "blink-color-2",
+    "blink-color-3",
+    "blink-color-4",
+  ];
   const moNoToColorClass = {};
   let colorIndex = 0;
 
-  data.forEach(item => {
+  data.forEach((item) => {
     if (item.mo_no !== maxMoNo && !moNoToColorClass[item.mo_no]) {
-      moNoToColorClass[item.mo_no] = colorClasses[colorIndex % colorClasses.length];
+      moNoToColorClass[item.mo_no] =
+        colorClasses[colorIndex % colorClasses.length];
       colorIndex++;
     }
   });
@@ -211,7 +269,7 @@ async function renderTable() {
 
     const actionCell = document.createElement("td");
     const deleteIcon = document.createElement("span");
-    deleteIcon.textContent = "Xóa";
+    deleteIcon.textContent = currentDict.delete;
     deleteIcon.classList.add("delete-icon");
 
     // Nếu là mo_no lẻ => gán class màu riêng
@@ -236,7 +294,6 @@ async function renderTable() {
     tableBody.appendChild(row);
   });
 }
-
 
 //**************Lấy data show vào table ***********//
 async function fetchTableData() {
@@ -273,7 +330,7 @@ async function deleteRow(epcCode, keyid) {
   try {
     const confirmation = await ipcRenderer.invoke(
       "show-confirm-dialog",
-      `Bạn có chắc chắn muốn xóa EPC Code: ${epcCode}?`
+      currentDict.confirmDelete + epcCode
     );
 
     if (confirmation) {
@@ -324,7 +381,7 @@ epcCodeInput.addEventListener("input", () => {
     if (epcCode) {
       addEPCRow(epcCode);
       console.log("Calling stored procedure with EPC:", epcCode);
- 
+
       epcCodeInput.disabled = true;
       // Gọi hàm trong main process để xử lý stored procedure
 
@@ -332,12 +389,13 @@ epcCodeInput.addEventListener("input", () => {
         .invoke("call-sp-upsert-epc", epcCode)
         .then(async (result) => {
           const infor = await ipcRenderer.invoke("get-infor", epcCode);
-          let size = infor.success && infor.record ? infor.record.size_numcode : "Lỗi";
+          let size =
+            infor.success && infor.record ? infor.record.size_numcode : "Lỗi";
           let mono = infor.success && infor.record ? infor.record.mo_no : "Lỗi";
           if (result.success && result.returnValue == 0) {
             const notification = document.createElement("div");
             notification.className = "notification error";
-            notification.innerText = `EPC chưa được phối hoặc bị lỗi: ${epcCode}`;
+            notification.innerText = currentDict.epcNotNatch + epcCode;
             document.body.appendChild(notification);
 
             // Ẩn thông báo sau 3 giây
@@ -346,7 +404,6 @@ epcCodeInput.addEventListener("input", () => {
             }, 5000);
             errorList.push(epcCode);
             logToFile(failLogFile, `EPC ${epcCode}`);
-
             return;
           }
           if (result.success && result.returnValue === 1) {
@@ -359,7 +416,12 @@ epcCodeInput.addEventListener("input", () => {
                 // Đã quét rồi, hiển thị thông báo
                 const notification = document.createElement("div");
                 notification.className = "notification warning";
-                notification.innerText = `EPC đã được quét hôm nay: ${epcCode} - Size:${size} -${mono} (Lúc: ${doc.record_time})`;
+                notification.innerText =
+                  currentDict.epcScanToday +
+                  epcCode +
+                  ` - Size:${size} -${mono}` +
+                  currentDict.atTime +
+                  doc.record_time;
                 document.body.appendChild(notification);
                 lastList.push(epcCode);
                 setTimeout(() => {
@@ -385,7 +447,12 @@ epcCodeInput.addEventListener("input", () => {
               if (doc) {
                 notification.className = "notification warning";
                 // Tem đã được quét trong hôm nay
-                message = `EPC đã được quét hôm nay: ${epcCode} - Size:${size} -${mono} (Lúc: ${doc.record_time})`;
+                message =
+                  currentDict.epcScanToday +
+                  epcCode +
+                  ` - Size:${size} -${mono}` +
+                  currentDict.atTime +
+                  doc.record_time;
                 notification.innerText = message;
                 document.body.appendChild(notification);
                 setTimeout(() => {
@@ -394,7 +461,11 @@ epcCodeInput.addEventListener("input", () => {
               } else {
                 notification.className = "notification error      ";
                 // Tem đã được quét vào ngày trước đó → log & lưu error
-                message = `EPC đã được quét vào ngày trước đó: ${epcCode} - Size: ${size} - ${mono}`;
+                message =
+                  currentDict.epcScanPrev +
+                  `  ` +
+                  epcCode +
+                  ` - Size:${size} -${mono}`;
                 notification.innerText = message;
                 document.body.appendChild(notification);
                 lastList.push(epcCode);
@@ -449,7 +520,6 @@ epcCodeInput.addEventListener("input", () => {
         });
     }
 
-
     // Sau khi xử lý xong, xóa nội dung của input và focus lại
   }, 200); // 500ms = 0.5 giây
 });
@@ -469,7 +539,7 @@ function addEPCRow(epcCode) {
 
   const actionCell = document.createElement("td");
   const deleteIcon = document.createElement("span");
-  deleteIcon.textContent = "xóa";
+  deleteIcon.textContent = currentDict.delete;
   deleteIcon.classList.add("delete-icon");
 
   row.appendChild(epcCell);
@@ -532,13 +602,21 @@ document.addEventListener("click", (event) => {
   }
 });
 
-const stationNo = process.env.STATION_NO;
-
 // Ghi vào HTML
-const stationElement = document.querySelector("h2");
-if (stationElement) {
-  stationElement.textContent = `Trạm ${stationNo}`;
-}
+ipcRenderer
+  .invoke("get-station-name", {
+    stationNo: process.env.STATION_NO,
+    lang: process.env.lang || "en",
+  })
+  .then((stationName) => {
+    const stationElement = document.querySelector("h2");
+    if (stationElement) {
+      stationElement.textContent = stationName || process.env.STATION_NO;
+    }
+  })
+  .catch((err) => {
+    console.error("Không lấy được station name:", err);
+  });
 
 // modal
 const errorBtn = document.querySelector(".error-epc-btn");
@@ -550,8 +628,6 @@ errorBtn.addEventListener("click", () => {
   updateErrorTable();
   modal.style.display = "flex";
 });
-
-
 
 // Đóng modal khi bấm nút close
 closeModalBtn.addEventListener("click", () => {
@@ -610,7 +686,7 @@ function updateErrorTable() {
 
     errorTableBody.innerHTML = ""; // Xóa nội dung cũ
     if (docs.length === 0) {
-      errorTableBody.innerHTML = `<tr><td colspan="2">Không có EPC hỏng</td></tr>`;
+      errorTableBody.innerHTML = `<tr><td colspan="2">${currentDict.noEpcError}</td></tr>`;
       return;
     }
 
@@ -619,7 +695,7 @@ function updateErrorTable() {
       row.innerHTML = `
         <td>${doc.epcCode}</td>
         <td>
-          <span hidden disabled class="delete-btn" data-id="${doc._id}">Xóa</span>
+          <span hidden disabled class="delete-btn" data-id="${doc._id}">${currentDict.delete}</span>
         </td>
       `;
       errorTableBody.appendChild(row);
@@ -675,7 +751,7 @@ updateLastCount();
 function updateLastTable() {
   lastTableBody.innerHTML = ""; // Xóa nội dung cũ
   if (lastList.length === 0) {
-    lastTableBody.innerHTML = `<tr><td colspan="2">Không có EPC hỏng</td></tr>`;
+    lastTableBody.innerHTML = `<tr><td colspan="2">${currentDict.noEpcError}</td></tr>`;
     return;
   }
   lastList.forEach((error, index) => {
@@ -746,7 +822,7 @@ function updateLastTable() {
 
     lastTableBody.innerHTML = ""; // Xóa nội dung cũ
     if (docs.length === 0) {
-      lastTableBody.innerHTML = `<tr><td colspan="2">Không có EPC hỏng</td></tr>`;
+      lastTableBody.innerHTML = `<tr><td colspan="2">${currentDict.noEpcError}</td></tr>`;
       return;
     }
 
@@ -755,7 +831,7 @@ function updateLastTable() {
       row.innerHTML = `
         <td>${doc.epc}</td>
         <td>
-          <button hidden disabled class="delete-last-btn" data-id="${doc._id}">Xóa</button>
+            <button hidden disabled class="delete-last-btn" data-id="${doc._id}">${currentDict.delete}</button>
         </td>
       `;
       lastTableBody.appendChild(row);
@@ -819,9 +895,10 @@ async function fetchTargetQty(stationNos) {
     const response = await ipcRenderer.invoke("get-qty-target", stationNos);
 
     if (response.success && response.record) {
-      console.log('goi thanh cong');
-      
-      document.getElementById("target-count").textContent = response.record.pr_qty;
+      console.log("goi thanh cong");
+
+      document.getElementById("target-count").textContent =
+        response.record.pr_qty;
     } else {
       console.error("Không có dữ liệu hoặc lỗi:", response.message);
       document.getElementById("target-count").textContent = "0";
@@ -832,7 +909,6 @@ async function fetchTargetQty(stationNos) {
   }
 }
 
-
 fetchTargetQty();
 setInterval(() => {
   fetchTargetQty(stationNos);
@@ -842,4 +918,17 @@ const versionApp = process.env.VERSION_APP;
 const versionElement = document.querySelector("title");
 if (versionElement) {
   versionElement.textContent = `SCAN EPC ${versionApp}`;
+}
+
+async function fetchTargetQty(epc) {
+  try {
+    const response = await ipcRenderer.invoke("check-assembly-status", epc);
+    if (response.success) {
+      console.log("Trùng khớp station:", response.match); // true hoặc false
+    } else {
+      console.warn("Không thành công:", response.message);
+    }
+  } catch (err) {
+    console.error("Lỗi khi gọi ipcRenderer:", err);
+  }
 }

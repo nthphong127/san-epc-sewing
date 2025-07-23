@@ -353,7 +353,6 @@ ipcMain.handle("sync-offline-data", async () => {
       return { success: false, message: "Network is offline." };
     }
 
-    console.log("Fetching offline data for sync...");
 
     // Lấy tất cả các bản ghi chưa đồng bộ từ NeDB
     const rows = await new Promise((resolve, reject) => {
@@ -377,9 +376,10 @@ ipcMain.handle("sync-offline-data", async () => {
           .request()
           .input("EPC", sql.NVarChar, row.epc)
           .input("StationNo", sql.NVarChar, row.stationNos)
+          .input("IP", sql.NVarChar, ipLocal)
+          .input("record_time", sql.DateTime, new Date(row.created_at)) // Sửa chỗ này
           .execute("SP_UpsertEpcRecord_phong");
-
-        // Cập nhật trạng thái bản ghi là đã đồng bộ
+    
         await new Promise((resolve, reject) => {
           db.update(
             { _id: row._id },
@@ -396,6 +396,7 @@ ipcMain.handle("sync-offline-data", async () => {
         console.error("Error syncing record:", row, err.message);
       }
     }
+    
 
     // Xóa các bản ghi đã đồng bộ
     await new Promise((resolve, reject) => {
@@ -413,3 +414,73 @@ ipcMain.handle("sync-offline-data", async () => {
     return { success: false, message: error.message };
   }
 });
+
+ipcMain.handle("get-station-name", async (event, { stationNo, lang }) => {
+  const langColumnMap = {
+    vn: "Vietnamese",
+    cn: "SimplifiedChinese",
+    kh: "Khmer",
+    en: "English",
+  };
+
+  const columnName = langColumnMap[lang] || "English";
+
+  try {
+    await sql.connect(config);
+    const query = `
+      SELECT TOP 1 [${columnName}] AS StationName
+      FROM dv_rfidreader
+      WHERE device_name = @stationNo
+    `;
+    const request = new sql.Request();
+    request.input("stationNo", sql.VarChar, stationNo);
+
+    const result = await request.query(query);
+    if (result.recordset.length > 0) {
+      return result.recordset[0].StationName;
+    } else {
+      return stationNo; // fallback nếu không có
+    }
+  } catch (err) {
+    console.error("Lỗi khi truy vấn tên station:", err);
+    return stationNo;
+  }
+});
+
+
+ipcMain.handle("check-assembly-status", async (event, epc) => {
+  try {
+    const pool = await sql.connect(config);
+
+    const query = `
+      SELECT TOP 1 drbd.stationNO  
+      FROM dv_RFIDrecordmst_backup_Daily drbd
+      JOIN dv_rfidmatchmst dr ON dr.keyid = drbd.matchkeyid
+      WHERE dr.EPC_Code = @epc 
+        AND dr.ri_cancel = '0'
+        AND drbd.stationNO LIKE '%p_101%'
+    `;
+
+    const result = await pool
+      .request()
+      .input("epc", sql.NVarChar, epc)
+      .query(query);
+
+    await sql.close();
+
+    const record = result.recordset[0] || null;
+
+    const isMatch = record && record.stationNO == stationNos;
+
+    return { success: true, match: isMatch };
+  } catch (error) {
+    console.error("Database query error:", error);
+    return { success: false, message: error.message };
+  }
+});
+
+
+
+
+
+
