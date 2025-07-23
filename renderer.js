@@ -6,7 +6,17 @@ require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 // ************ Cấu hình ngôn ngữ ************ //
 const lang = process.env.lang || "en";
+ipcRenderer.on("update_available", () => {
+  alert("🔔 Có bản cập nhật mới. Ứng dụng sẽ tự động tải xuống...");
+});
 
+// Khi tải xong bản cập nhật
+ipcRenderer.on("update_downloaded", () => {
+  const confirmUpdate = confirm("✅ Đã tải xong bản cập nhật. Cập nhật ngay?");
+  if (confirmUpdate) {
+    ipcRenderer.send("install_update");
+  }
+});
 function loadLang(langCode) {
   const langFilePath = path.join(__dirname, "lang", `${langCode}.json`);
   try {

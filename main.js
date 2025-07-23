@@ -1,23 +1,29 @@
 const { app, BrowserWindow, ipcMain, dialog } = require("electron");
+const { autoUpdater } = require("electron-updater");
+const log = require("electron-log");
 const sql = require("mssql");
 const Datastore = require("nedb");
 const path = require("path");
+const os = require("os");
+require("dotenv").config({ path: `${__dirname}/.env` });
 
+// Cấu hình log cho autoUpdater
+autoUpdater.logger = log;
+autoUpdater.logger.transports.file.level = "info";
+
+// ===== Load cấu hình =====
 const dbPath = path.join(__dirname, "offline.db");
 const db = new Datastore({ filename: dbPath, autoload: true });
 
-require("dotenv").config({ path: `${__dirname}/.env` });
+const stationNos = process.env.STATION_NO;
+const factoryCodes = process.env.FACTORY_CODE;
+const stationNoCus = process.env.STATION_NO_CUS;
 
-var stationNos = process.env.STATION_NO;
-var factoryCodes = process.env.FACTORY_CODE;
-var stationNoCus = process.env.STATION_NO_CUS;
-const os = require("os");
-
+// ===== Lấy địa chỉ IP local =====
 function getLocalIP() {
   const interfaces = os.networkInterfaces();
   for (const interfaceName in interfaces) {
     for (const net of interfaces[interfaceName]) {
-      // Chỉ lấy IPv4 và bỏ qua địa chỉ loopback
       if (net.family === "IPv4" && !net.internal) {
         return net.address;
       }
@@ -25,9 +31,9 @@ function getLocalIP() {
   }
   return "Không tìm thấy IP";
 }
-var ipLocal = getLocalIP(); // get ip local address
+const ipLocal = getLocalIP();
 
-// Cấu hình kết nối SQL Server
+// ===== Cấu hình kết nối SQL Server =====
 const config = {
   user: process.env.DB_USERNAME,
   password: process.env.DB_PASSWORD,
@@ -42,20 +48,17 @@ const config = {
 };
 
 let mainWindow;
-
-let isOnline = true; // Mặc định là online
+let isOnline = true; // Mặc định online
 
 ipcMain.on("network-status", (event, status) => {
-  isOnline = status; // Cập nhật trạng thái mạng
-  // console.log("Network status updated:", isOnline ? "Online" : "Offline");
+  isOnline = status;
 });
 
-// Khởi tạo ứng dụng Electron
-app.on("ready", () => {
+// ===== Tạo cửa sổ chính =====
+function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1024,
     height: 768,
-    // fullscreen: true,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -63,13 +66,45 @@ app.on("ready", () => {
   });
 
   mainWindow.loadFile("index.html");
-});
 
+  // Tự động kiểm tra cập nhật sau khi app khởi động
+  autoUpdater.checkForUpdatesAndNotify();
+}
+
+// ===== Sự kiện app ready =====
+app.whenReady().then(createWindow);
+
+// ===== Đóng app nếu không phải macOS =====
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
   }
 });
+
+// ===== Tự động cập nhật =====
+autoUpdater.on("update-available", () => {
+  log.info("Có bản cập nhật mới.");
+  mainWindow.webContents.send("update_available");
+});
+
+autoUpdater.on("update-downloaded", () => {
+  log.info("Đã tải xong bản cập nhật.");
+  dialog.showMessageBox({
+    type: "info",
+    title: "Cập nhật có sẵn",
+    message: "Phiên bản mới đã được tải về. Bạn có muốn cập nhật ngay không?",
+    buttons: ["Cập nhật", "Để sau"]
+  }).then(result => {
+    if (result.response === 0) {
+      autoUpdater.quitAndInstall();
+    }
+  });
+});
+
+ipcMain.on("install_update", () => {
+  autoUpdater.quitAndInstall();
+});
+
 
 ipcMain.handle(
   "call-stored-procedure",
