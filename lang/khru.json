@@ -21,6 +21,7 @@
     "noEpcError": "គ្មាន EPC ខូចទេ",
     "atTime": "នៅម៉ោង",
     "statusNetworkOnline": "ស្ថានភាពបណ្តាញ៖ អនឡាញ",
-    "statusNetworkOffline": "ស្ថានភាពបណ្តាញ៖ អុផ្លាញ"
+    "statusNetworkOffline": "ស្ថានភាពបណ្តាញ៖ អុផ្លាញ",
+      "qty-cus" : "បរិមាណវេចខ្ចប់"
   }
   

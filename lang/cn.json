@@ -21,5 +21,6 @@
   "noEpcError": "无未配标签 ",
   "atTime": "时间",
   "statusNetworkOnline": "网络状态：在线",
-  "statusNetworkOffline": "网络状态：离线"
+  "statusNetworkOffline": "网络状态：离线",
+    "qty-cus" : "包装数量"
 }

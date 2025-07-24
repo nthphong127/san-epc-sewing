@@ -7,7 +7,7 @@ const path = require("path");
 const os = require("os");
 require("dotenv").config({ path: `${__dirname}/.env` });
 
-// Cấu hình log cho autoUpdater
+// ===== Cấu hình log cho autoUpdater =====
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = "info";
 
@@ -48,7 +48,7 @@ const config = {
 };
 
 let mainWindow;
-let isOnline = true; // Mặc định online
+let isOnline = true;
 
 ipcMain.on("network-status", (event, status) => {
   isOnline = status;
@@ -67,8 +67,10 @@ function createWindow() {
 
   mainWindow.loadFile("index.html");
 
-  // Tự động kiểm tra cập nhật sau khi app khởi động
-  autoUpdater.checkForUpdatesAndNotify();
+  // Khi cửa sổ đã sẵn sàng, mới check cập nhật
+  mainWindow.webContents.on("did-finish-load", () => {
+    autoUpdater.checkForUpdates();
+  });
 }
 
 // ===== Sự kiện app ready =====
@@ -76,35 +78,62 @@ app.whenReady().then(createWindow);
 
 // ===== Đóng app nếu không phải macOS =====
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
+  if (process.platform !== "darwin") app.quit();
 });
 
-// ===== Tự động cập nhật =====
+// ===== Các sự kiện autoUpdater =====
+autoUpdater.on("checking-for-update", () => {
+  log.info("Đang kiểm tra bản cập nhật...");
+  mainWindow?.webContents.send("log", "🔍 Đang kiểm tra bản cập nhật...");
+});
+
 autoUpdater.on("update-available", () => {
   log.info("Có bản cập nhật mới.");
-  mainWindow.webContents.send("update_available");
+  mainWindow?.webContents.send("update_available");
+  mainWindow?.webContents.send("log", "🔔 Có bản cập nhật mới.");
+});
+
+autoUpdater.on("update-not-available", () => {
+  log.info("Không có bản cập nhật.");
+  mainWindow?.webContents.send("log", "✅ Không có bản cập nhật.");
+});
+
+autoUpdater.on("error", (err) => {
+  log.error("Lỗi cập nhật:", err);
+  mainWindow?.webContents.send("log", `❌ Lỗi cập nhật: ${err.message}`);
+});
+
+autoUpdater.on("download-progress", (progressObj) => {
+  mainWindow?.webContents.send("download_progress", progressObj);
 });
 
 autoUpdater.on("update-downloaded", () => {
   log.info("Đã tải xong bản cập nhật.");
-  dialog.showMessageBox({
-    type: "info",
-    title: "Cập nhật có sẵn",
-    message: "Phiên bản mới đã được tải về. Bạn có muốn cập nhật ngay không?",
-    buttons: ["Cập nhật", "Để sau"]
-  }).then(result => {
-    if (result.response === 0) {
-      autoUpdater.quitAndInstall();
-    }
-  });
+  mainWindow?.webContents.send("update_downloaded");
+
+  dialog
+    .showMessageBox({
+      type: "info",
+      title: "Cập nhật có sẵn",
+      message: "Phiên bản mới đã được tải về. Bạn có muốn cập nhật ngay không?",
+      buttons: ["Cập nhật", "Để sau"],
+    })
+    .then((result) => {
+      if (result.response === 0) {
+        autoUpdater.quitAndInstall();
+      }
+    });
 });
 
+// Từ renderer gửi lên để cài đặt
 ipcMain.on("install_update", () => {
   autoUpdater.quitAndInstall();
 });
+const appVersion = app.getVersion();
 
+ipcMain.handle("get_app_version", () => {
+  return appVersion;
+});
 
 ipcMain.handle(
   "call-stored-procedure",
@@ -354,15 +383,16 @@ ipcMain.handle("show-confirm-dialog", async (event, message) => {
   return result === 0;
 });
 
-ipcMain.handle("get-qty-target", async (event, message) => {
+ipcMain.handle("get-qty-target", async (event, stationNos) => {
   try {
     const pool = await sql.connect(config);
 
     const query = `
-     SELECT TOP 1 a.pr_qty FROM  dv_production_daily a 
-      LEFT JOIN dv_rfidreader b ON a.pr_dept_code  = b.dept_code
+      SELECT TOP 1 a.pr_qty 
+      FROM dv_production_daily a 
+      LEFT JOIN dv_rfidreader b ON a.pr_dept_code = b.dept_code
       WHERE a.pr_date = CAST(GETDATE() AS DATE)
-      AND b.device_name = @StationNo;
+        AND b.device_name = @StationNo;
     `;
 
     const result = await pool
@@ -378,6 +408,8 @@ ipcMain.handle("get-qty-target", async (event, message) => {
     return { success: false, message: error.message };
   }
 });
+k
+
 
 //*********************Xử lý data offline**************************//
 
@@ -387,7 +419,6 @@ ipcMain.handle("sync-offline-data", async () => {
       console.log("Network is still offline. Cannot sync.");
       return { success: false, message: "Network is offline." };
     }
-
 
     // Lấy tất cả các bản ghi chưa đồng bộ từ NeDB
     const rows = await new Promise((resolve, reject) => {
@@ -414,7 +445,7 @@ ipcMain.handle("sync-offline-data", async () => {
           .input("IP", sql.NVarChar, ipLocal)
           .input("record_time", sql.DateTime, new Date(row.created_at)) // Sửa chỗ này
           .execute("SP_UpsertEpcRecord_phong");
-    
+
         await new Promise((resolve, reject) => {
           db.update(
             { _id: row._id },
@@ -431,7 +462,6 @@ ipcMain.handle("sync-offline-data", async () => {
         console.error("Error syncing record:", row, err.message);
       }
     }
-    
 
     // Xóa các bản ghi đã đồng bộ
     await new Promise((resolve, reject) => {
@@ -481,41 +511,5 @@ ipcMain.handle("get-station-name", async (event, { stationNo, lang }) => {
     return stationNo;
   }
 });
-
-
-ipcMain.handle("check-assembly-status", async (event, epc) => {
-  try {
-    const pool = await sql.connect(config);
-
-    const query = `
-      SELECT TOP 1 drbd.stationNO  
-      FROM dv_RFIDrecordmst_backup_Daily drbd
-      JOIN dv_rfidmatchmst dr ON dr.keyid = drbd.matchkeyid
-      WHERE dr.EPC_Code = @epc 
-        AND dr.ri_cancel = '0'
-        AND drbd.stationNO LIKE '%p_101%'
-    `;
-
-    const result = await pool
-      .request()
-      .input("epc", sql.NVarChar, epc)
-      .query(query);
-
-    await sql.close();
-
-    const record = result.recordset[0] || null;
-
-    const isMatch = record && record.stationNO == stationNos;
-
-    return { success: true, match: isMatch };
-  } catch (error) {
-    console.error("Database query error:", error);
-    return { success: false, message: error.message };
-  }
-});
-
-
-
-
 
 

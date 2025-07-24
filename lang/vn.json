@@ -21,5 +21,6 @@
   "noEpcError": "Không có EPC hỏng",
   "atTime": "Lúc",
   "statusNetworkOnline": "Network Status: Online",
-  "statusNetworkOffline": "Network Status: Offline"
+  "statusNetworkOffline": "Network Status: Offline",
+  "qty-cus" : "Số lượng đóng gói"
 }

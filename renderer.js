@@ -6,6 +6,23 @@ require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 // ************ Cấu hình ngôn ngữ ************ //
 const lang = process.env.lang || "en";
+ipcRenderer.on("download_progress", (e, progress) => {
+  const percent = Math.floor(progress.percent);
+  console.log(`Downloading: ${percent}%`);
+});
+
+ipcRenderer.on("update_available", () => {
+  console.log("Có bản cập nhật mới, đang tải...");
+});
+
+ipcRenderer.on("update_downloaded", () => {
+  console.log("Đã tải xong, chuẩn bị cài...");
+});
+
+ipcRenderer.on("log", (e, msg) => {
+  console.log(msg);
+});
+
 ipcRenderer.on("update_available", () => {
   alert("🔔 Có bản cập nhật mới. Ứng dụng sẽ tự động tải xuống...");
 });
@@ -17,6 +34,12 @@ ipcRenderer.on("update_downloaded", () => {
     ipcRenderer.send("install_update");
   }
 });
+async function displayVersion() {
+  const version = await ipcRenderer.invoke("get_app_version");
+  document.getElementById("app-version").innerText = `Version: ${version}`;
+}
+
+window.addEventListener("DOMContentLoaded", displayVersion);
 function loadLang(langCode) {
   const langFilePath = path.join(__dirname, "lang", `${langCode}.json`);
   try {
@@ -390,8 +413,7 @@ epcCodeInput.addEventListener("input", () => {
     // Nếu epcCode có giá trị, gọi stored procedure
     if (epcCode) {
       addEPCRow(epcCode);
-      console.log("Calling stored procedure with EPC:", epcCode);
-
+ 
       epcCodeInput.disabled = true;
       // Gọi hàm trong main process để xử lý stored procedure
 
@@ -930,15 +952,4 @@ if (versionElement) {
   versionElement.textContent = `SCAN EPC ${versionApp}`;
 }
 
-async function fetchTargetQty(epc) {
-  try {
-    const response = await ipcRenderer.invoke("check-assembly-status", epc);
-    if (response.success) {
-      console.log("Trùng khớp station:", response.match); // true hoặc false
-    } else {
-      console.warn("Không thành công:", response.message);
-    }
-  } catch (err) {
-    console.error("Lỗi khi gọi ipcRenderer:", err);
-  }
-}
+

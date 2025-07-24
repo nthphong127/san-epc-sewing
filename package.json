@@ -41,13 +41,14 @@
       "list-scan.db",
       "offline.db",
       "node_modules/**/*",
-      "assets/**/*"
+      "assets/**/*",
+      "lang/**/*"
     ],
     "publish": [
       {
         "provider": "github",
-        "owner": "YOUR_GITHUB_USERNAME",
-        "repo": "YOUR_REPO_NAME"
+        "owner": "nthphong127",
+        "repo": "san-epc-sewing"
       }
     ],
     "win": {

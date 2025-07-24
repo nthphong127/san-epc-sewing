@@ -21,5 +21,6 @@
   "noEpcError": "No defective EPC",
   "atTime": "At",
   "statusNetworkOnline": "Network Status: Online",
-  "statusNetworkOffline": "Network Status: Offline"
+  "statusNetworkOffline": "Network Status: Offline",
+     "qty-cus" : "包装数量"
 }
