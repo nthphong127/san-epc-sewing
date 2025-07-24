@@ -383,7 +383,7 @@ ipcMain.handle("show-confirm-dialog", async (event, message) => {
   return result === 0;
 });
 
-ipcMain.handle("get-qty-target", async (event, stationNos) => {
+ipcMain.handle("get-qty-target", async (event, message) => {
   try {
     const pool = await sql.connect(config);
 
@@ -399,7 +399,8 @@ ipcMain.handle("get-qty-target", async (event, stationNos) => {
       .request()
       .input("StationNo", sql.NVarChar, stationNos)
       .query(query);
-
+    console.log(stationNos);
+    
     await sql.close();
 
     return { success: true, record: result.recordset[0] || null };
@@ -408,7 +409,6 @@ ipcMain.handle("get-qty-target", async (event, stationNos) => {
     return { success: false, message: error.message };
   }
 });
-k
 
 
 //*********************Xử lý data offline**************************//

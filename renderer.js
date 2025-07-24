@@ -925,7 +925,8 @@ function saveEpcIfNew(epc, callback) {
 async function fetchTargetQty(stationNos) {
   try {
     const response = await ipcRenderer.invoke("get-qty-target", stationNos);
-
+    console.log(response);
+    
     if (response.success && response.record) {
       console.log("goi thanh cong");
 
