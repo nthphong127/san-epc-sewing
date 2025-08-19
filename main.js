@@ -1,18 +1,21 @@
 const { app, BrowserWindow, ipcMain, dialog } = require("electron");
-const { autoUpdater } = require("electron-updater");
 const log = require("electron-log");
 const sql = require("mssql");
 const Datastore = require("nedb");
 const path = require("path");
 const os = require("os");
+const fs = require("fs");
 require("dotenv").config({ path: `${__dirname}/.env` });
 
-// ===== Cấu hình log cho autoUpdater =====
-autoUpdater.logger = log;
-autoUpdater.logger.transports.file.level = "info";
+
 
 // ===== Load cấu hình =====
-const dbPath = path.join(__dirname, "offline.db");
+const dbDir = path.join(__dirname, "db");
+if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
+
+// 👉 Sửa dòng này để file nằm trong folder 'db'
+const dbPath = path.join(dbDir, "offline.db");
+
 const db = new Datastore({ filename: dbPath, autoload: true });
 
 const stationNos = process.env.STATION_NO;
@@ -29,7 +32,7 @@ function getLocalIP() {
       }
     }
   }
-  return "Không tìm thấy IP";
+  return "Không tìm thấy IP"; //no ip
 }
 const ipLocal = getLocalIP();
 
@@ -67,10 +70,6 @@ function createWindow() {
 
   mainWindow.loadFile("index.html");
 
-  // Khi cửa sổ đã sẵn sàng, mới check cập nhật
-  mainWindow.webContents.on("did-finish-load", () => {
-    autoUpdater.checkForUpdates();
-  });
 }
 
 // ===== Sự kiện app ready =====
@@ -81,59 +80,7 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-// ===== Các sự kiện autoUpdater =====
-autoUpdater.on("checking-for-update", () => {
-  log.info("Đang kiểm tra bản cập nhật...");
-  mainWindow?.webContents.send("log", "🔍 Đang kiểm tra bản cập nhật...");
-});
 
-autoUpdater.on("update-available", () => {
-  log.info("Có bản cập nhật mới.");
-  mainWindow?.webContents.send("update_available");
-  mainWindow?.webContents.send("log", "🔔 Có bản cập nhật mới.");
-});
-
-autoUpdater.on("update-not-available", () => {
-  log.info("Không có bản cập nhật.");
-  mainWindow?.webContents.send("log", "✅ Không có bản cập nhật.");
-});
-
-autoUpdater.on("error", (err) => {
-  log.error("Lỗi cập nhật:", err);
-  mainWindow?.webContents.send("log", `❌ Lỗi cập nhật: ${err.message}`);
-});
-
-autoUpdater.on("download-progress", (progressObj) => {
-  mainWindow?.webContents.send("download_progress", progressObj);
-});
-
-autoUpdater.on("update-downloaded", () => {
-  log.info("Đã tải xong bản cập nhật.");
-  mainWindow?.webContents.send("update_downloaded");
-
-  dialog
-    .showMessageBox({
-      type: "info",
-      title: "Cập nhật có sẵn",
-      message: "Phiên bản mới đã được tải về. Bạn có muốn cập nhật ngay không?",
-      buttons: ["Cập nhật", "Để sau"],
-    })
-    .then((result) => {
-      if (result.response === 0) {
-        autoUpdater.quitAndInstall();
-      }
-    });
-});
-
-// Từ renderer gửi lên để cài đặt
-ipcMain.on("install_update", () => {
-  autoUpdater.quitAndInstall();
-});
-const appVersion = app.getVersion();
-
-ipcMain.handle("get_app_version", () => {
-  return appVersion;
-});
 
 ipcMain.handle(
   "call-stored-procedure",
@@ -190,8 +137,6 @@ WHERE
   }
 });
 
-const fs = require("fs"); // Import module file system
-
 // Tạo ngày hiện tại theo format YYYY-MM-DD
 const today = new Date();
 const dateString = today.toISOString().slice(0, 10); // "2025-04-26"
@@ -210,17 +155,34 @@ ipcMain.handle("call-sp-upsert-epc", async (event, epc, stationNo) => {
       const record = {
         epc,
         stationNos,
-        ipLocal,
-        synced: 0, // Chưa đồng bộ
+        ipLocal: "offline",
+        synced: 0,
         created_at: new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString(),
       };
-      db.insert(record, (err, newDoc) => {
-        if (err) {
-          console.error("Error saving to NeDB:", err.message);
-          return { success: false, message: "Error saving data locally." };
-        }
-        console.log("Saved to NeDB successfully:", newDoc);
+
+      const existing = await new Promise((resolve, reject) => {
+        db.findOne({ epc, synced: 0 }, (err, doc) => {
+          if (err) return reject(err);
+          resolve(doc);
+        });
       });
+
+      if (existing) {
+        console.log("Duplicate EPC (unsynced), skipping insert:", epc);
+        return {
+          success: false,
+          message: "Duplicate EPC (unsynced), skipped.",
+        };
+      }
+
+      const inserted = await new Promise((resolve, reject) => {
+        db.insert(record, (err, newDoc) => {
+          if (err) return reject(err);
+          resolve(newDoc);
+        });
+      });
+
+      console.log("Saved to NeDB successfully:", inserted);
       return { success: false, message: "Offline: Data saved locally." };
     } catch (err) {
       console.error("Error saving to NeDB:", err.message);
@@ -230,8 +192,6 @@ ipcMain.handle("call-sp-upsert-epc", async (event, epc, stationNo) => {
 
   // Nếu online, xử lý logic SQL Server
   try {
-    console.log(ipLocal);
-
     const pool = await sql.connect(config);
     const result = await pool
       .request()
@@ -400,7 +360,7 @@ ipcMain.handle("get-qty-target", async (event, message) => {
       .input("StationNo", sql.NVarChar, stationNos)
       .query(query);
     console.log(stationNos);
-    
+
     await sql.close();
 
     return { success: true, record: result.recordset[0] || null };
@@ -409,7 +369,6 @@ ipcMain.handle("get-qty-target", async (event, message) => {
     return { success: false, message: error.message };
   }
 });
-
 
 //*********************Xử lý data offline**************************//
 
@@ -420,9 +379,9 @@ ipcMain.handle("sync-offline-data", async () => {
       return { success: false, message: "Network is offline." };
     }
 
-    // Lấy tất cả các bản ghi chưa đồng bộ từ NeDB
+    // Lấy tất cả các bản ghi offline chưa xử lý
     const rows = await new Promise((resolve, reject) => {
-      db.find({ synced: 0 }, (err, docs) => {
+      db.find({}, (err, docs) => {
         if (err) return reject(err);
         resolve(docs);
       });
@@ -435,47 +394,35 @@ ipcMain.handle("sync-offline-data", async () => {
 
     const pool = await sql.connect(config);
 
-    // Đồng bộ từng bản ghi
     for (const row of rows) {
       try {
         await pool
           .request()
           .input("EPC", sql.NVarChar, row.epc)
           .input("StationNo", sql.NVarChar, row.stationNos)
-          .input("IP", sql.NVarChar, ipLocal)
-          .input("record_time", sql.DateTime, new Date(row.created_at)) // Sửa chỗ này
+          .input("IP", sql.NVarChar, row.ipLocal ?? "offline")
+          .input("record_time", sql.DateTime, new Date(row.created_at))
           .execute("SP_UpsertEpcRecord_phong");
 
+        // Xóa bản ghi sau khi insert thành công
         await new Promise((resolve, reject) => {
-          db.update(
-            { _id: row._id },
-            { $set: { synced: 1 } },
-            {},
-            (err, numReplaced) => {
-              if (err) return reject(err);
-              resolve(numReplaced);
-            }
-          );
+          db.remove({ _id: row._id }, {}, (err, numRemoved) => {
+            if (err) return reject(err);
+            resolve(numRemoved);
+          });
         });
-        console.log("Synced record:", row);
+
+        console.log("Synced & removed record:", row);
       } catch (err) {
-        console.error("Error syncing record:", row, err.message);
+        console.error("❌ Error syncing record:", row, err.message);
+        // Không xóa nếu lỗi
       }
     }
-
-    // Xóa các bản ghi đã đồng bộ
-    await new Promise((resolve, reject) => {
-      db.remove({ synced: 1 }, { multi: true }, (err, numRemoved) => {
-        if (err) return reject(err);
-        console.log(`Deleted ${numRemoved} synced records.`);
-        resolve(numRemoved);
-      });
-    });
 
     await sql.close();
     return { success: true, message: "Sync completed successfully." };
   } catch (error) {
-    console.error("Error during sync:", error.message);
+    console.error("❌ Error during sync:", error.message);
     return { success: false, message: error.message };
   }
 });
@@ -511,5 +458,3 @@ ipcMain.handle("get-station-name", async (event, { stationNo, lang }) => {
     return stationNo;
   }
 });
-
-

@@ -1,7 +1,7 @@
 {
   "list-error": "Error tag list",
   "epc": "Tag",
-  "function": "Function",
+  "function": "Reason",
   "epc-scanned": "Previously scanned tags",
   "close": "Close",
   "noti-internet": "Internet connection restored, syncing data, please wait...",

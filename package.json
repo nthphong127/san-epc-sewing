@@ -11,14 +11,13 @@
     "postinstall": "electron-builder install-app-deps"
   },
   "devDependencies": {
-    "electron": "^37.2.3",
-    "electron-builder": "^26.0.12"
+    "electron": "^22.3.26",
+    "electron-builder": "^23.6.0"
   },
   "dependencies": {
     "classic": "^0.0.2",
     "dotenv": "^16.4.7",
     "electron-log": "^5.4.1",
-    "electron-updater": "^6.6.2",
     "mssql": "^11.0.1",
     "nedb": "^1.8.0",
     "nodb": "^0.0.1"
@@ -52,7 +51,14 @@
       }
     ],
     "win": {
-      "target": ["nsis"],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "artifactName": "${productName}-setup-${version}.${ext}"
     },
     "nsis": {

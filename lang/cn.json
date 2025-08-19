@@ -1,7 +1,7 @@
 {
   "list-error": "未配双epc",
   "epc": "标签",
-  "function": "操作",
+  "function": "原因",
   "epc-scanned": "已扫过明细",
   "close": "关闭",
   "noti-internet": "网络已回复，数据同步中，请稍等。...",
