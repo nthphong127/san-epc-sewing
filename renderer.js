@@ -435,6 +435,29 @@ epcCodeInput.addEventListener("input", () => {
               notification.remove();
             }, 5000);
             errorList.push(epcCode);
+            errorDb.findOne({ epc: epcCode }, (err, existingError) => {
+              if (err) {
+                console.error("Lỗi DB khi kiểm tra lỗi EPC:", err);
+                return;
+              }
+            
+              if (!existingError) {
+                const record = {
+                  epc: epcCode,
+                  record_time: formatDate(new Date()),
+                  reason: currentDict.epcNotNatch,
+                };
+                errorDb.insert(record, (err, newDoc) => {
+                  if (err) {
+                    console.error("Lỗi DB khi insert EPC:", err);
+                    return;
+                  }
+                  // Insert thành công thì gọi hàm
+                  updateErrorCount();
+                });
+              }
+            });
+            
             logToFile(failLogFile, `EPC ${epcCode}`);
             return;
           }
@@ -725,11 +748,11 @@ function updateErrorTable() {
     docs.forEach((doc, index) => {
       const row = document.createElement("tr");
       row.innerHTML = `
-        <td>${doc.epcCode}</td>
-        <td>
-          <span hidden disabled class="delete-btn" data-id="${doc._id}">${currentDict.delete}</span>
-        </td>
-      `;
+      <td>${doc.epc}</td>
+      <td>
+        <span >${doc.reason}</span>
+      </td>
+    `;
       errorTableBody.appendChild(row);
     });
 
@@ -810,19 +833,7 @@ window.addEventListener("click", (event) => {
   }
 });
 
-// Hàm cập nhật số lượng tem lỗi
-function updateLastCount() {
-  lastDb.count({}, (err, count) => {
-    if (err) {
-      console.error("Failed to count errors in database:", err);
-    } else {
-      const lastCountSpan = document.getElementById("last-count");
-      lastCountSpan.textContent = count; // Hiển thị số lượng tem lỗi
-    }
-  });
-}
 
-updateLastCount();
 
 function cleanOldDataLast() {
   const today = new Date();
@@ -945,7 +956,7 @@ async function fetchTargetQty(stationNos) {
 fetchTargetQty();
 setInterval(() => {
   fetchTargetQty(stationNos);
-}, 2 * 60 * 60 * 1000);
+}, 30 * 60 * 1000);
 const versionApp = process.env.VERSION_APP;
 
 const versionElement = document.querySelector("title");
